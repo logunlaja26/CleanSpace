@@ -1,15 +1,15 @@
-# CleanSpace - Smart Photo & Video Cleaner
+# 📸 CleanSpace - Smart Photo & Video Cleaner
 
 An AI-powered iOS app built with React Native that helps users reclaim device storage by intelligently cleaning, compressing, and optimizing photos and videos.
 
 ---
 
-## Overview
+## 🚀 Overview
 
 CleanSpace is a privacy-first, offline-capable iOS storage management app that uses a hybrid SQLite + Supabase architecture to analyze your iPhone media library and help you free up space through:
 
 - **Duplicate Detection**: Find and remove exact and visually similar photos
-- **Intelligent Compression**: Convert JPEG � HEIC and H.264 � HEVC without quality loss
+- **Intelligent Compression**: Convert **JPEG** → **HEIC** and **H.264** → **HEVC** without quality loss
 - **AI Quality Scoring**: Automatically identify the best photos in each cluster
 - **Storage Visualization**: See your storage usage and track savings over time
 - **Privacy-Focused**: All photo analysis happens locally on your device
@@ -380,7 +380,7 @@ PRAGMA mmap_size = 268435456;     -- 256MB memory-mapped I/O
 - Safety-first approach with Undo/Trash support
 
 ### Compression & Optimization
-- Converts JPEG � HEIC and H.264 � HEVC
+- Converts **JPEG → HEIC** and **H.264 → HEVC** for smaller, high-quality files
 - Estimates savings before applying actions
 - Preserves metadata (EXIF, timestamps, albums)
 
@@ -523,7 +523,32 @@ PRAGMA mmap_size = 268435456;     -- 256MB memory-mapped I/O
 - **Free Tier**: Limited scans and duplicate cleanup
 - **Pro Tier**: Full compression, AI recommendations, background tasks, cloud backup
 
-In-app purchases managed via StoreKit or react-native-iap.
+In-app purchases managed via preferably RevenueCat (react-native-iap) or StoreKit.
+
+### Free Tier Enforcement Strategy
+
+**Limit Configuration:**
+- 3 scans per month (resets on same day each month)
+- 50 photos maximum for duplicate cleanup per period
+- Compression features disabled
+- AI recommendations disabled
+- Background scanning disabled
+- Cloud sync disabled
+
+**Implementation Approach:**
+- Add `usage_limits` table to SQLite schema to track scan and cleanup usage
+- Store subscription tier (free/pro), usage counters, and period start dates locally
+- Check limits before allowing scan or cleanup operations
+- Show remaining usage in UI (e.g., "2 scans remaining this month")
+- Display upgrade prompts when limits are reached
+- Reset monthly counters automatically based on period start date
+- Sync subscription status with Supabase for cross-device validation (optional)
+
+**Key Benefits:**
+- Local-first tracking for instant limit checks (no network delay)
+- Graceful degradation with clear upgrade messaging
+- Monthly reset mechanism for recurring usage
+- Transparent usage display to encourage upgrades at right moments
 
 ---
 
