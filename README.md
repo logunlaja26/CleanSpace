@@ -62,19 +62,24 @@ User Action � SQLite (instant update) � Sync Queue � Supabase (background)
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
+| **Framework** | Expo | Development framework with native access |
 | **Frontend** | React Native (TypeScript) | Core mobile app |
 | | React Navigation | Screen transitions |
 | | NativeWind / Tailwind RN | Design system |
 | | FlashList | High-performance media lists |
 | **Backend** | Supabase (Postgres + Auth + Storage) | User data, sync, reports |
 | | Supabase Edge Functions | AI scoring, scheduled jobs |
-| **Local Storage** | SQLite | Offline cache of media hashes & scores |
-| **Device APIs** | PhotoKit / AVFoundation | Access to iOS photos & videos |
-| | react-native-camera-roll | Photo library access |
-| | react-native-permissions | Permission management |
-| **Utilities** | react-native-device-info | Disk usage stats |
-| | react-native-fs | File system operations |
-| | react-native-background-fetch | Background scanning |
+| **Local Storage** | expo-sqlite | Offline cache of media hashes & scores |
+| **Device APIs** | expo-media-library | Photo library access |
+| | expo-file-system | File system operations |
+| | expo-image-picker | Image selection |
+| | PhotoKit / AVFoundation (custom) | Advanced iOS photo features |
+| **Permissions** | expo-permissions + config plugins | Permission management |
+| **Utilities** | expo-device, expo-application | Device and app info |
+| | expo-task-manager | Background task management |
+| | expo-background-fetch | Background scanning |
+| **Build & Deploy** | EAS Build, EAS Submit | Cloud build and deployment |
+| | EAS Update | Over-the-air updates |
 
 ---
 
@@ -103,10 +108,10 @@ User Action � SQLite (instant update) � Sync Queue � Supabase (background)
 **Core Development Tools:**
 1. **Xcode** - Apple's IDE for iOS development (download from Mac App Store)
 2. **Homebrew** - Package manager for Mac
-3. **Node.js** - JavaScript runtime (version 16 or later)
+3. **Node.js** - JavaScript runtime (version 18 or later)
 4. **Watchman** - File watching service for React Native
-5. **CocoaPods** - iOS dependency manager
-6. **React Native CLI** - Command-line tools
+5. **Expo CLI** - Expo command-line tools
+6. **EAS CLI** - Expo Application Services CLI for builds
 
 **Apple Developer Account:**
 - Free tier sufficient for development and testing
@@ -117,64 +122,128 @@ User Action � SQLite (instant update) � Sync Queue � Supabase (background)
 
 ## Project Setup
 
-### Step 1: Create React Native Project
+### Step 1: Create Expo Project
 
-Initialize a new React Native project with iOS support:
+Initialize a new Expo project with TypeScript support:
 ```bash
-npx react-native init PhotoVideoCleaner --template react-native-template-typescript
-cd PhotoVideoCleaner
+# Create project in current directory
+npx create-expo-app@latest . --template expo-template-blank-typescript
+
+# Install CLI tools globally (recommended)
+npm install -g expo-cli eas-cli
 ```
 
 ### Step 2: Install Core Dependencies
 
 ```bash
-# Essential libraries
-npm install react-native-sqlite-storage
-npm install @react-native-camera-roll/camera-roll
-npm install react-native-permissions
-npm install react-native-fs
+# Core Expo libraries
+npx expo install expo-sqlite expo-media-library expo-image-picker
+npx expo install expo-file-system expo-permissions
+npx expo install expo-device expo-application
+npx expo install expo-task-manager expo-background-fetch
+
+# External libraries
 npm install @supabase/supabase-js
-npm install react-native-device-info
-npm install react-native-background-fetch
 npm install @tanstack/react-query
 
 # UI libraries
 npm install @shopify/flash-list
-npm install react-navigation
+npx expo install @react-navigation/native @react-navigation/native-stack
+npx expo install react-native-screens react-native-safe-area-context
+npm install nativewind tailwindcss
 
-# Install iOS pods
-cd ios && pod install && cd ..
+# Monetization (choose one)
+npx expo install expo-in-app-purchases
+# OR for RevenueCat
+npm install react-native-purchases
 ```
 
-### Step 3: Configure iOS Project in Xcode
+### Step 3: Configure app.json
 
-**Open the Workspace File:**
+Create or update your `app.json` with iOS-specific configuration:
+
+```json
+{
+  "expo": {
+    "name": "CleanSpace",
+    "slug": "cleanspace",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.cleanspace",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "We need access to analyze your photos and find duplicates to free up storage space",
+        "NSPhotoLibraryAddUsageDescription": "We may save optimized versions of your photos",
+        "NSCameraUsageDescription": "Access to camera for capturing new photos"
+      }
+    },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow CleanSpace to access your photos",
+          "savePhotosPermission": "Allow CleanSpace to save photos"
+        }
+      ]
+    ]
+  }
+}
+```
+
+### Step 4: Set Up NativeWind
+
+**Create tailwind.config.js:**
 ```bash
+npx tailwindcss init
+```
+
+**Configure babel.config.js:**
+```javascript
+module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo'],
+    plugins: ['nativewind/babel'],
+  };
+};
+```
+
+### Step 5: Create Development Build
+
+For native features like photo library access, you need a development build:
+
+**Option 1: EAS Build (Cloud-based, Recommended)**
+```bash
+# Configure EAS
+eas build:configure
+
+# Create iOS development build
+eas build --profile development --platform ios
+
+# Install on device when complete
+```
+
+**Option 2: Local Build**
+```bash
+# Generate native iOS project
+npx expo prebuild --platform ios
+
+# Install iOS dependencies
+cd ios && pod install && cd ..
+
+# Open in Xcode if needed
 open ios/PhotoVideoCleaner.xcworkspace
 ```
 
-**Configure Code Signing:**
-- Select your project in the left navigator
-- Choose your target (app name)
-- Go to "Signing & Capabilities" tab
-- Select your Apple Developer Team
-- Enable "Automatically manage signing"
-
-**Add Required Capabilities:**
-- Click "+ Capability" button
-- Add "Photo Library" capability
-
-**Configure Privacy Permissions in Info.plist:**
-```xml
-<key>NSPhotoLibraryUsageDescription</key>
-<string>We need access to analyze your photos and find duplicates to free up storage space</string>
-<key>NSPhotoLibraryAddUsageDescription</key>
-<string>We may save optimized versions of your photos</string>
-<key>NSCameraUsageDescription</key>
-<string>Access to camera for capturing new photos</string>
-```
-
-### Step 4: Project Structure
+### Step 6: Project Structure
 
 ```
 src/
@@ -586,23 +655,40 @@ In-app purchases managed via preferably RevenueCat (react-native-iap) or StoreKi
 ## Development Commands
 
 ```bash
-# Start Metro bundler
-npm start
+# Start Expo development server
+npx expo start
 
-# Run on iOS
-npm run ios
+# Run on iOS simulator
+npx expo run:ios
 
-# Run on specific device
-npx react-native run-ios --device "iPhone Name"
+# Run on specific physical device (with development build)
+npx expo run:ios --device
+# OR
+npx expo run:ios --device "iPhone Name"
 
-# Build for release
-cd ios && xcodebuild -workspace PhotoVideoCleaner.xcworkspace -scheme PhotoVideoCleaner -configuration Release
+# Run with Expo Go (for basic testing without native features)
+npx expo start
+# Then scan QR code with Expo Go app
 
-# Install pods
-cd ios && pod install && cd ..
+# Build for development (EAS)
+eas build --profile development --platform ios
+
+# Build for production (EAS)
+eas build --profile production --platform ios
+
+# Submit to App Store (EAS)
+eas submit --platform ios
+
+# Create OTA update (after initial release)
+eas update --branch production
 
 # Clean build
-cd ios && xcodebuild clean && cd ..
+rm -rf node_modules ios android .expo
+npm install
+npx expo prebuild --clean
+
+# Local iOS build (after expo prebuild)
+cd ios && xcodebuild -workspace PhotoVideoCleaner.xcworkspace -scheme PhotoVideoCleaner -configuration Release
 ```
 
 ---
