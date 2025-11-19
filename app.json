@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "cleanSpace",
-    "slug": "cleanSpace",
+    "name": "CleanSpace",
+    "slug": "cleanspace",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cleanspace.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "CleanSpace needs access to your photo library to help you organize and clean up duplicate photos, large files, and screenshots to free up storage space.",
+        "NSPhotoLibraryAddUsageDescription": "CleanSpace needs permission to save optimized photos back to your library after compression.",
+        "NSCameraUsageDescription": "CleanSpace may use your camera to capture new photos."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +27,21 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.cleanspace.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow CleanSpace to access your photos to analyze and help you clean up duplicates, large files, and screenshots.",
+          "savePhotosPermission": "Allow CleanSpace to save optimized photos to your library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ]
   }
 }

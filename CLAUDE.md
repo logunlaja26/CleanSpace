@@ -463,7 +463,7 @@ This is the recommended sequence for building the CleanSpace app from scratch. F
    npm install -g expo-cli eas-cli
    ```
 
-- [ ] **Install All Expo-Compatible Dependencies**
+- [X] **Install All Expo-Compatible Dependencies**
    ```bash
    # Core Expo libraries
    npx expo install expo-sqlite expo-media-library expo-image-picker
@@ -481,26 +481,24 @@ This is the recommended sequence for building the CleanSpace app from scratch. F
    npm install nativewind tailwindcss
 
    # Monetization (choose one)
-   npx expo install expo-in-app-purchases
-   # OR
    npm install react-native-purchases
    ```
 
-- [ ] **Configure app.json for iOS Permissions**
-   - [ ] Set app name, slug, and bundle identifier
-   - [ ] Add iOS-specific configuration
-   - [ ] Configure Info.plist permissions:
-     - [ ] NSPhotoLibraryUsageDescription
-     - [ ] NSPhotoLibraryAddUsageDescription
-     - [ ] NSCameraUsageDescription
-   - [ ] Add expo-media-library plugin with permissions
+- [X] **Configure app.json for iOS Permissions**
+   - [X] Set app name, slug, and bundle identifier
+   - [X] Add iOS-specific configuration
+   - [X] Configure Info.plist permissions:
+     - [X] NSPhotoLibraryUsageDescription
+     - [X] NSPhotoLibraryAddUsageDescription
+     - [X] NSCameraUsageDescription
+   - [X] Add expo-media-library plugin with permissions
 
-- [ ] **Set Up NativeWind/Tailwind**
-   - [ ] Create `tailwind.config.js`: `npx tailwindcss init`
-   - [ ] Configure `babel.config.js` for NativeWind with expo preset
-   - [ ] Add nativewind/babel plugin
+- [X] **Set Up NativeWind/Tailwind**
+   - [X] Create `tailwind.config.js`: `npx tailwindcss init`
+   - [X] Configure `babel.config.js` for NativeWind with expo preset
+   - [X] Add nativewind/babel plugin
 
-- [ ] **Create Development Build (for native features)**
+- [X] **Create Development Build (for native features)**
    ```bash
    # Option 1: EAS Build (cloud-based)
    eas build:configure
@@ -511,7 +509,7 @@ This is the recommended sequence for building the CleanSpace app from scratch. F
    cd ios && pod install && cd ..
    ```
 
-- [ ] **Test Run**
+- [X] **Test Run**
    ```bash
    # Start Expo dev server
    npx expo start
@@ -519,7 +517,7 @@ This is the recommended sequence for building the CleanSpace app from scratch. F
    # Run on iOS simulator (requires development build)
    npx expo run:ios
    ```
-   - [ ] Verify app launches successfully on simulator or device
+   - [X] Verify app launches successfully on simulator or device
 
 ---
 
