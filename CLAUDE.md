@@ -455,7 +455,7 @@ This is the recommended sequence for building the CleanSpace app from scratch. F
 
 **Goal:** Get a working Expo iOS project with all dependencies installed.
 
-- [ ] **Create Expo Project with TypeScript**
+- [X] **Create Expo Project with TypeScript**
    ```bash
    npx create-expo-app@latest . --template expo-template-blank-typescript
 
