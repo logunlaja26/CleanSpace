@@ -19,6 +19,7 @@
     "expo-background-fetch": "^14.0.8",
     "expo-device": "^8.0.9",
     "expo-file-system": "^19.0.19",
+    "expo-haptics": "~15.0.7",
     "expo-image-picker": "^17.0.8",
     "expo-media-library": "^18.2.0",
     "expo-permissions": "^14.4.0",
@@ -27,10 +28,12 @@
     "expo-task-manager": "^14.0.8",
     "nativewind": "^4.2.1",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-purchases": "^9.6.6",
     "react-native-safe-area-context": "^5.6.2",
     "react-native-screens": "~4.16.0",
+    "react-native-web": "^0.21.0",
     "tailwindcss": "^3.4.18"
   },
   "devDependencies": {
