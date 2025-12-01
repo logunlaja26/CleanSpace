@@ -45,6 +45,9 @@ npx expo run:ios
 npx expo start
 # Then scan QR code with Expo Go app
 
+ # Clear Metro bundler cache
+npx expo start -c
+
 # Run on specific physical device with development build (REQUIRED for photo library access)
 npx expo run:ios --device
 
