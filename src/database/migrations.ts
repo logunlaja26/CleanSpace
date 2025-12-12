@@ -69,9 +69,9 @@ export const getCurrentVersion = async (): Promise<number> => {
 const setVersion = async (version: number): Promise<void> => {
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     // Create schema_version table if it doesn't exist
-    await txn.execAsync(`
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER PRIMARY KEY,
         applied_at INTEGER DEFAULT (strftime('%s', 'now'))
@@ -79,7 +79,7 @@ const setVersion = async (version: number): Promise<void> => {
     `);
 
     // Insert new version
-    await txn.runAsync(
+    await db.runAsync(
       'INSERT OR REPLACE INTO schema_version (version) VALUES (?);',
       [version]
     );
@@ -247,9 +247,9 @@ export const resetDatabase = async (): Promise<void> => {
     const db = getDatabase();
 
     // Drop all tables
-    await executeTransaction(async (txn) => {
+    await executeTransaction(async (_txn) => {
       // Drop schema_version table
-      await txn.execAsync('DROP TABLE IF EXISTS schema_version;');
+      await db.execAsync('DROP TABLE IF EXISTS schema_version;');
 
       // Drop all app tables
       const tables = [
@@ -267,7 +267,7 @@ export const resetDatabase = async (): Promise<void> => {
       ];
 
       for (const table of tables) {
-        await txn.execAsync(`DROP TABLE IF EXISTS ${table};`);
+        await db.execAsync(`DROP TABLE IF EXISTS ${table};`);
       }
     });
 
@@ -290,7 +290,7 @@ export const resetDatabase = async (): Promise<void> => {
  *   version: 2,
  *   name: 'add_quality_scores',
  *   up: async (db) => {
- *     await db.execAsync(`
+ *     await db.runAsync(`
  *       ALTER TABLE photo_duplicate_mapping
  *       ADD COLUMN quality_score REAL;
  *     `);

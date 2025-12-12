@@ -41,7 +41,8 @@
           "savePhotosPermission": "Allow CleanSpace to save optimized photos to your library.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-sqlite"
     ]
   }
 }

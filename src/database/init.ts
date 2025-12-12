@@ -33,14 +33,12 @@ const DB_NAME = 'cleanspace.db';
  */
 const applyPragmas = async (db: SQLite.SQLiteDatabase): Promise<void> => {
   try {
-    // Apply all PRAGMAs in a single execution
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA synchronous = NORMAL;
-      PRAGMA cache_size = 10000;
-      PRAGMA temp_store = MEMORY;
-      PRAGMA mmap_size = 268435456;
-    `);
+    // Apply all PRAGMAs individually using execAsync
+    await db.execAsync('PRAGMA journal_mode = WAL;');
+    await db.execAsync('PRAGMA synchronous = NORMAL;');
+    await db.execAsync('PRAGMA cache_size = 10000;');
+    await db.execAsync('PRAGMA temp_store = MEMORY;');
+    await db.execAsync('PRAGMA mmap_size = 268435456;');
 
     console.log('[Database] Performance PRAGMAs applied successfully');
   } catch (error) {
@@ -197,8 +195,8 @@ export const executeExclusiveTransaction = async (
   const db = getDatabase();
 
   try {
-    await db.withExclusiveTransactionAsync(async (txn) => {
-      await callback(txn);
+    await db.withExclusiveTransactionAsync(async (_txn) => {
+      await callback(db);
     });
   } catch (error) {
     console.error('[Database] Exclusive transaction error:', error);
@@ -208,14 +206,16 @@ export const executeExclusiveTransaction = async (
 
 /**
  * Execute raw SQL (useful for schema creation and migrations)
+ * Note: Executes each statement separately
  *
- * @param sql SQL statements to execute
+ * @param sql SQL statements to execute (separated by semicolons)
  * @returns Promise<void>
  */
 export const executeRawSQL = async (sql: string): Promise<void> => {
   const db = getDatabase();
 
   try {
+    // Use execAsync for raw SQL execution
     await db.execAsync(sql);
   } catch (error) {
     console.error('[Database] Raw SQL execution error:', error);

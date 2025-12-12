@@ -261,9 +261,9 @@ export const insertPhotos = async (photos: Omit<Photo, 'created_at' | 'updated_a
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const photo of photos) {
-      await txn.runAsync(
+      await db.runAsync(
         `INSERT OR IGNORE INTO photos (
           id, uri, filename, file_size, width, height,
           creation_time, modification_time, media_type, is_screenshot,
@@ -355,9 +355,9 @@ export const deletePhotos = async (ids: string[]): Promise<void> => {
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const id of ids) {
-      await txn.runAsync(
+      await db.runAsync(
         'UPDATE photos SET is_deleted = 1, updated_at = strftime("%s", "now") WHERE id = ?;',
         [id]
       );

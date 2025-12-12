@@ -317,32 +317,32 @@ export const createSchema = async (): Promise<void> => {
     const db = getDatabase();
 
     // Execute all operations in a single transaction
-    await executeTransaction(async (txn) => {
+    await executeTransaction(async (_txn) => {
       // Create tables
-      await txn.execAsync(CREATE_PHOTOS_TABLE);
-      await txn.execAsync(CREATE_PHOTO_HASHES_TABLE);
-      await txn.execAsync(CREATE_DUPLICATE_GROUPS_TABLE);
-      await txn.execAsync(CREATE_PHOTO_DUPLICATE_MAPPING_TABLE);
-      await txn.execAsync(CREATE_VIDEOS_TABLE);
-      await txn.execAsync(CREATE_SCAN_HISTORY_TABLE);
-      await txn.execAsync(CREATE_STORAGE_ANALYTICS_TABLE);
-      await txn.execAsync(CREATE_USER_PREFERENCES_TABLE);
-      await txn.execAsync(CREATE_SYNC_QUEUE_TABLE);
-      await txn.execAsync(CREATE_CLOUD_SYNC_STATE_TABLE);
-      await txn.execAsync(CREATE_USAGE_LIMITS_TABLE);
+      await db.execAsync(CREATE_PHOTOS_TABLE);
+      await db.execAsync(CREATE_PHOTO_HASHES_TABLE);
+      await db.execAsync(CREATE_DUPLICATE_GROUPS_TABLE);
+      await db.execAsync(CREATE_PHOTO_DUPLICATE_MAPPING_TABLE);
+      await db.execAsync(CREATE_VIDEOS_TABLE);
+      await db.execAsync(CREATE_SCAN_HISTORY_TABLE);
+      await db.execAsync(CREATE_STORAGE_ANALYTICS_TABLE);
+      await db.execAsync(CREATE_USER_PREFERENCES_TABLE);
+      await db.execAsync(CREATE_SYNC_QUEUE_TABLE);
+      await db.execAsync(CREATE_CLOUD_SYNC_STATE_TABLE);
+      await db.execAsync(CREATE_USAGE_LIMITS_TABLE);
 
       // Create indexes
       for (const indexSQL of CREATE_INDEXES) {
-        await txn.execAsync(indexSQL);
+        await db.execAsync(indexSQL);
       }
 
       // Insert default preferences
       for (const prefSQL of INSERT_DEFAULT_PREFERENCES) {
-        await txn.execAsync(prefSQL);
+        await db.execAsync(prefSQL);
       }
 
       // Insert default usage limits
-      await txn.execAsync(INSERT_DEFAULT_USAGE_LIMITS);
+      await db.execAsync(INSERT_DEFAULT_USAGE_LIMITS);
     });
 
     console.log('[Schema] Database schema created successfully');
@@ -373,9 +373,11 @@ export const dropAllTables = async (): Promise<void> => {
     'usage_limits',
   ];
 
-  await executeTransaction(async (txn) => {
+  const db = getDatabase();
+
+  await executeTransaction(async (_txn) => {
     for (const table of tables) {
-      await txn.execAsync(`DROP TABLE IF EXISTS ${table};`);
+      await db.execAsync(`DROP TABLE IF EXISTS ${table};`);
     }
   });
 

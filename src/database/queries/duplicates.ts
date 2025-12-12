@@ -129,9 +129,9 @@ export const addPhotosToGroup = async (
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const mapping of photoMappings) {
-      await txn.runAsync(
+      await db.runAsync(
         `INSERT OR IGNORE INTO photo_duplicate_mapping (photo_id, group_id, is_primary, quality_score)
          VALUES (?, ?, ?, ?);`,
         [mapping.photoId, groupId, mapping.isPrimary ? 1 : 0, mapping.qualityScore || null]
@@ -139,7 +139,7 @@ export const addPhotosToGroup = async (
     }
 
     // Update group photo count
-    await txn.runAsync(
+    await db.runAsync(
       `UPDATE duplicate_groups
        SET photo_count = (SELECT COUNT(*) FROM photo_duplicate_mapping WHERE group_id = ?)
        WHERE id = ?;`,
@@ -272,15 +272,17 @@ export const updateGroupRecommendation = async (
   groupId: number,
   primaryPhotoId: string
 ): Promise<void> => {
-  await executeTransaction(async (txn) => {
+  const db = getDatabase();
+
+  await executeTransaction(async (_txn) => {
     // Clear all primary flags in this group
-    await txn.runAsync(
+    await db.runAsync(
       'UPDATE photo_duplicate_mapping SET is_primary = 0 WHERE group_id = ?;',
       [groupId]
     );
 
     // Set new primary
-    await txn.runAsync(
+    await db.runAsync(
       'UPDATE photo_duplicate_mapping SET is_primary = 1 WHERE group_id = ? AND photo_id = ?;',
       [groupId, primaryPhotoId]
     );

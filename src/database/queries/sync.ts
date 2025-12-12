@@ -106,9 +106,9 @@ export const enqueueSyncItems = async (
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const item of items) {
-      await txn.runAsync(
+      await db.runAsync(
         `INSERT INTO sync_queue (operation_type, entity_type, entity_id, payload, max_retries, status)
          VALUES (?, ?, ?, ?, ?, 'pending');`,
         [

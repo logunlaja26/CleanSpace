@@ -75,9 +75,9 @@ export const insertHashes = async (hashes: PhotoHashInsert[]): Promise<void> => 
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const hashData of hashes) {
-      await txn.runAsync(
+      await db.runAsync(
         `INSERT OR IGNORE INTO photo_hashes (photo_id, md5_hash, perceptual_hash, dhash, average_hash)
          VALUES (?, ?, ?, ?, ?);`,
         [
@@ -312,9 +312,9 @@ export const deleteHashes = async (photoIds: string[]): Promise<void> => {
 
   const db = getDatabase();
 
-  await executeTransaction(async (txn) => {
+  await executeTransaction(async (_txn) => {
     for (const photoId of photoIds) {
-      await txn.runAsync('DELETE FROM photo_hashes WHERE photo_id = ?;', [photoId]);
+      await db.runAsync('DELETE FROM photo_hashes WHERE photo_id = ?;', [photoId]);
     }
   });
 
