@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cleanspace.app",
+      "bundleIdentifier": "com.lyomann.cleanspace",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "CleanSpace needs access to your photo library to help you organize and clean up duplicate photos, large files, and screenshots to free up storage space.",
         "NSPhotoLibraryAddUsageDescription": "CleanSpace needs permission to save optimized photos back to your library after compression.",
@@ -28,7 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.cleanspace.app"
+      "package": "com.lyomann.cleanspace"
     },
     "web": {
       "favicon": "./assets/favicon.png"

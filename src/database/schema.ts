@@ -143,9 +143,10 @@ CREATE TABLE IF NOT EXISTS scan_history (
   scan_type TEXT NOT NULL,
   photos_scanned INTEGER DEFAULT 0,
   duplicates_found INTEGER DEFAULT 0,
-  scan_duration_ms INTEGER,
-  started_at INTEGER DEFAULT (strftime('%s', 'now')),
-  completed_at INTEGER,
+  large_files_found INTEGER DEFAULT 0,
+  screenshots_found INTEGER DEFAULT 0,
+  duration_ms INTEGER,
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),
   status TEXT DEFAULT 'pending',
   error_message TEXT
 );
@@ -271,7 +272,7 @@ const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_photo_dup_mapping_group ON photo_duplicate_mapping(group_id);',
 
   // Scan history indexes
-  'CREATE INDEX IF NOT EXISTS idx_scan_history_created ON scan_history(started_at);',
+  'CREATE INDEX IF NOT EXISTS idx_scan_history_created ON scan_history(created_at);',
   'CREATE INDEX IF NOT EXISTS idx_scan_history_status ON scan_history(status);',
 
   // Sync queue indexes
