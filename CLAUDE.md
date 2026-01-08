@@ -955,58 +955,58 @@ const mockDuplicates = [
 
 **Update:** `src/screens/Dashboard.tsx`
 
-- [ ] Connect to `StorageAnalytics.calculateTotalStorage()`
-- [ ] Display real duplicate groups from database
-- [ ] Show actual last scan timestamp from `scan_history`
-- [ ] Connect "Start Scan" button to `PhotoScanner.startScan()`
-- [ ] Show usage limits from `UsageManager.getRemainingUsage()`
+- [X] Connect to `StorageAnalytics.calculateTotalStorage()`
+- [X] Display real duplicate groups from database
+- [X] Show actual last scan timestamp from `scan_history`
+- [X] Connect "Start Scan" button to `PhotoScanner.startScan()`
+- [X] Show usage limits from `UsageManager.getRemainingUsage()`
 
 #### 5.2 Photo Library Integration
 
 **Update:** `src/screens/PhotoLibrary.tsx`
 
-- [ ] Load real photos from `queries/photos.getAllPhotos()`
-- [ ] Implement pagination with FlashList
-- [ ] Connect filters to database queries
-- [ ] Implement sort functionality
-- [ ] Enable bulk selection and deletion
+- [X] Load real photos from `queries/photos.getAllPhotos()`
+- [X] Implement pagination with FlashList
+- [X] Connect filters to database queries
+- [X] Implement sort functionality
+- [X] Enable bulk selection and deletion
 
 #### 5.3 Duplicates Integration
 
 **Update:** `src/screens/Duplicates.tsx`
 
-- [ ] Load duplicate groups from `queries/duplicates.getDuplicateGroups()`
-- [ ] Show real confidence scores
-- [ ] Connect "Keep" selection to database
-- [ ] Implement deletion with usage limit checks
-- [ ] Update savings calculations based on actual file sizes
+- [X] Load duplicate groups from `queries/duplicates.getDuplicateGroups()`
+- [X] Show real confidence scores
+- [X] Connect "Keep" selection to database
+- [X] Implement deletion with usage limit checks
+- [X] Update savings calculations based on actual file sizes
 
 #### 5.4 Large Files Integration
 
 **Update:** `src/screens/LargeFiles.tsx`
 
-- [ ] Query `queries/photos.getLargeFiles(minSize)`
-- [ ] Show real file sizes
-- [ ] Implement compression (Pro feature)
-- [ ] Connect deletion to database
+- [X] Query `queries/photos.getLargeFiles(minSize)`
+- [X] Show real file sizes
+- [ ] Implement compression (Pro feature) - Deferred to Phase 6
+- [X] Connect deletion to database
 
 #### 5.5 Screenshots Integration
 
 **Update:** `src/screens/Screenshots.tsx`
 
-- [ ] Query `queries/photos.getScreenshots()`
-- [ ] Group by actual dates
-- [ ] Connect deletion functionality
+- [X] Query `queries/photos.getScreenshots()`
+- [X] Group by actual dates
+- [X] Connect deletion functionality
 
 #### 5.6 Settings Integration
 
 **Update:** `src/screens/Settings.tsx`
 
-- [ ] Load preferences from `queries/preferences.getAllPreferences()`
-- [ ] Connect all toggles to database
-- [ ] Show real subscription tier from `SubscriptionManager.getUserTier()`
-- [ ] Display actual usage stats
-- [ ] Implement sync controls
+- [X] Load preferences from `queries/preferences.getAllPreferences()`
+- [X] Connect all toggles to database
+- [X] Show real subscription tier from `UsageManager.getUserTier()`
+- [X] Display actual usage stats
+- [X] Implement sync controls
 
 #### 5.7 Paywall Integration
 

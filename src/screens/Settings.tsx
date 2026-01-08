@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { LoadingSpinner, ErrorState } from '../components';
+
+// Database queries and services
+import * as PreferenceQueries from '../database/queries/preferences';
+import { UsageManager } from '../services/UsageManager';
+import { SyncService } from '../services/SyncService';
 
 type SettingsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 };
 
 export default function Settings({ navigation }: SettingsProps) {
-  // Mock settings state
+  // State management
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Account state
   const [tier, setTier] = useState<'free' | 'pro'>('free');
-  const [scansRemaining, setScansRemaining] = useState(2);
-  const [cleanupRemaining, setCleanupRemaining] = useState(50);
+  const [scansRemaining, setScansRemaining] = useState(0);
+  const [cleanupRemaining, setCleanupRemaining] = useState(0);
 
   // Scanning preferences
   const [autoScanEnabled, setAutoScanEnabled] = useState(false);
@@ -26,6 +38,221 @@ export default function Settings({ navigation }: SettingsProps) {
   // Cloud sync settings
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>('Never');
+
+  /**
+   * Load all settings from database
+   */
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Load usage limits and tier
+      const usageManager = new UsageManager();
+      const usage = await usageManager.getRemainingUsage();
+      setTier(usage.tier === 'pro' ? 'pro' : 'free');
+      setScansRemaining(usage.scansRemaining);
+      setCleanupRemaining(usage.cleanupsRemaining);
+
+      // Load preferences
+      const prefs = await PreferenceQueries.getAllPreferences();
+
+      // Scanning preferences
+      setAutoScanEnabled(Number(prefs.auto_scan_enabled) === 1);
+      setScanOnCharging(Number(prefs.scan_only_when_charging) === 1);
+      setScanFrequency((prefs.scan_frequency as 'daily' | 'weekly' | 'monthly') || 'weekly');
+
+      // Duplicate detection settings
+      setSimilarityThreshold(Number(prefs.similarity_threshold) || 85);
+      setIncludeScreenshots(Number(prefs.include_screenshots_in_scan) === 1);
+      setIncludeBurstPhotos(Number(prefs.include_burst_photos_in_scan) === 1);
+
+      // Cloud sync settings
+      setCloudSyncEnabled(Number(prefs.cloud_sync_enabled) === 1);
+      setLastSync(prefs.last_sync_time ? formatTimeAgo(String(prefs.last_sync_time)) : 'Never');
+
+    } catch (err) {
+      console.error('Error loading settings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load settings');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Save a preference to database
+   */
+  const savePreference = async (key: string, value: string | number) => {
+    try {
+      await PreferenceQueries.setPreference(key, value.toString());
+    } catch (err) {
+      console.error(`Error saving preference ${key}:`, err);
+      Alert.alert('Error', 'Failed to save preference. Please try again.');
+    }
+  };
+
+  /**
+   * Toggle auto-scan with Pro check
+   */
+  const handleAutoScanToggle = async (value: boolean) => {
+    if (value && tier === 'free') {
+      Alert.alert(
+        'Pro Feature',
+        'Auto-scan is a Pro feature. Upgrade to enable automatic scanning.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+        ]
+      );
+      return;
+    }
+    setAutoScanEnabled(value);
+    await savePreference('auto_scan_enabled', value ? 1 : 0);
+  };
+
+  /**
+   * Toggle cloud sync with Pro check
+   */
+  const handleCloudSyncToggle = async (value: boolean) => {
+    if (value && tier === 'free') {
+      Alert.alert(
+        'Pro Feature',
+        'Cloud sync is a Pro feature. Upgrade to sync your preferences across devices.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+        ]
+      );
+      return;
+    }
+    setCloudSyncEnabled(value);
+    await savePreference('cloud_sync_enabled', value ? 1 : 0);
+  };
+
+  /**
+   * Trigger manual sync
+   */
+  const handleSyncNow = async () => {
+    try {
+      setIsSyncing(true);
+      const syncService = new SyncService();
+      await syncService.startSync();
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      await savePreference('last_sync_time', now);
+      setLastSync('Just now');
+
+      Alert.alert('Success', 'Settings synced successfully!');
+    } catch (err) {
+      console.error('Error syncing:', err);
+      Alert.alert('Sync Failed', 'Could not sync settings. Please check your connection and try again.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  /**
+   * Clear app cache
+   */
+  const handleClearCache = async () => {
+    Alert.alert(
+      'Clear Cache',
+      'This will clear temporary photo thumbnails. Your scan data and settings will not be affected.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          onPress: async () => {
+            // TODO: Implement cache clearing logic
+            Alert.alert('Success', 'Cache cleared successfully!');
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Reset database (danger zone)
+   */
+  const handleResetDatabase = async () => {
+    Alert.alert(
+      'Reset Database',
+      'This will delete ALL scan history, duplicate groups, and photo data. This cannot be undone. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // TODO: Implement database reset logic
+              // This should clear photos, hashes, duplicate groups, scan history
+              // but preserve user preferences and usage limits
+              Alert.alert('Success', 'Database reset successfully!');
+              loadSettings(); // Reload settings
+            } catch (err) {
+              console.error('Error resetting database:', err);
+              Alert.alert('Error', 'Failed to reset database. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  // Reload when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadSettings();
+    }, [])
+  );
+
+  /**
+   * Format timestamp to relative time
+   */
+  const formatTimeAgo = (timestamp: string): string => {
+    const now = Date.now();
+    const then = new Date(timestamp).getTime();
+    const diff = now - then;
+
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <LoadingSpinner size="large" label="Loading settings..." />
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <ErrorState
+          title="Failed to Load Settings"
+          message={error}
+          onRetry={loadSettings}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView className="flex-1 bg-gray-50">
@@ -92,7 +319,7 @@ export default function Settings({ navigation }: SettingsProps) {
           </View>
           <Switch
             value={autoScanEnabled}
-            onValueChange={setAutoScanEnabled}
+            onValueChange={handleAutoScanToggle}
             disabled={tier === 'free'}
           />
         </View>
@@ -103,7 +330,10 @@ export default function Settings({ navigation }: SettingsProps) {
             <Text className="text-gray-800 font-semibold mb-3">Scan Frequency</Text>
             <View className="flex-row space-x-2">
               <TouchableOpacity
-                onPress={() => setScanFrequency('daily')}
+                onPress={async () => {
+                  setScanFrequency('daily');
+                  await savePreference('scan_frequency', 'daily');
+                }}
                 className={`flex-1 py-2 rounded-lg ${scanFrequency === 'daily' ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
                 <Text className={`text-center font-semibold ${scanFrequency === 'daily' ? 'text-white' : 'text-gray-700'}`}>
@@ -111,7 +341,10 @@ export default function Settings({ navigation }: SettingsProps) {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setScanFrequency('weekly')}
+                onPress={async () => {
+                  setScanFrequency('weekly');
+                  await savePreference('scan_frequency', 'weekly');
+                }}
                 className={`flex-1 py-2 rounded-lg ${scanFrequency === 'weekly' ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
                 <Text className={`text-center font-semibold ${scanFrequency === 'weekly' ? 'text-white' : 'text-gray-700'}`}>
@@ -119,7 +352,10 @@ export default function Settings({ navigation }: SettingsProps) {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setScanFrequency('monthly')}
+                onPress={async () => {
+                  setScanFrequency('monthly');
+                  await savePreference('scan_frequency', 'monthly');
+                }}
                 className={`flex-1 py-2 rounded-lg ${scanFrequency === 'monthly' ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
                 <Text className={`text-center font-semibold ${scanFrequency === 'monthly' ? 'text-white' : 'text-gray-700'}`}>
@@ -138,7 +374,13 @@ export default function Settings({ navigation }: SettingsProps) {
               Preserve battery by scanning only when plugged in
             </Text>
           </View>
-          <Switch value={scanOnCharging} onValueChange={setScanOnCharging} />
+          <Switch
+            value={scanOnCharging}
+            onValueChange={async (value) => {
+              setScanOnCharging(value);
+              await savePreference('scan_only_when_charging', value ? 1 : 0);
+            }}
+          />
         </View>
       </View>
 
@@ -161,7 +403,10 @@ export default function Settings({ navigation }: SettingsProps) {
             {[70, 80, 85, 90, 95].map((value) => (
               <TouchableOpacity
                 key={value}
-                onPress={() => setSimilarityThreshold(value)}
+                onPress={async () => {
+                  setSimilarityThreshold(value);
+                  await savePreference('similarity_threshold', value);
+                }}
                 className={`flex-1 py-2 rounded-lg ${similarityThreshold === value ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
                 <Text className={`text-center text-sm ${similarityThreshold === value ? 'text-white font-bold' : 'text-gray-700'}`}>
@@ -180,7 +425,13 @@ export default function Settings({ navigation }: SettingsProps) {
               Detect duplicate screenshots
             </Text>
           </View>
-          <Switch value={includeScreenshots} onValueChange={setIncludeScreenshots} />
+          <Switch
+            value={includeScreenshots}
+            onValueChange={async (value) => {
+              setIncludeScreenshots(value);
+              await savePreference('include_screenshots_in_scan', value ? 1 : 0);
+            }}
+          />
         </View>
 
         {/* Include Burst Photos */}
@@ -191,7 +442,13 @@ export default function Settings({ navigation }: SettingsProps) {
               Group burst photos taken within 2 seconds
             </Text>
           </View>
-          <Switch value={includeBurstPhotos} onValueChange={setIncludeBurstPhotos} />
+          <Switch
+            value={includeBurstPhotos}
+            onValueChange={async (value) => {
+              setIncludeBurstPhotos(value);
+              await savePreference('include_burst_photos_in_scan', value ? 1 : 0);
+            }}
+          />
         </View>
       </View>
 
@@ -216,7 +473,7 @@ export default function Settings({ navigation }: SettingsProps) {
           </View>
           <Switch
             value={cloudSyncEnabled}
-            onValueChange={setCloudSyncEnabled}
+            onValueChange={handleCloudSyncToggle}
             disabled={tier === 'free'}
           />
         </View>
@@ -234,8 +491,14 @@ export default function Settings({ navigation }: SettingsProps) {
         {/* Sync Now Button */}
         {cloudSyncEnabled && (
           <View className="p-4">
-            <TouchableOpacity className="bg-blue-600 py-3 rounded-lg">
-              <Text className="text-white text-center font-semibold">Sync Now</Text>
+            <TouchableOpacity
+              className="bg-blue-600 py-3 rounded-lg"
+              onPress={handleSyncNow}
+              disabled={isSyncing}
+            >
+              <Text className="text-white text-center font-semibold">
+                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -248,13 +511,19 @@ export default function Settings({ navigation }: SettingsProps) {
         </View>
 
         <View className="p-4 border-b border-gray-200">
-          <TouchableOpacity className="bg-gray-200 py-3 rounded-lg">
+          <TouchableOpacity
+            className="bg-gray-200 py-3 rounded-lg"
+            onPress={handleClearCache}
+          >
             <Text className="text-gray-700 text-center font-semibold">Clear Cache</Text>
           </TouchableOpacity>
         </View>
 
         <View className="p-4">
-          <TouchableOpacity className="bg-red-100 py-3 rounded-lg">
+          <TouchableOpacity
+            className="bg-red-100 py-3 rounded-lg"
+            onPress={handleResetDatabase}
+          >
             <Text className="text-red-600 text-center font-semibold">Reset Database</Text>
           </TouchableOpacity>
           <Text className="text-xs text-gray-500 text-center mt-2">

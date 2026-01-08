@@ -1,145 +1,249 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { LoadingSpinner, ErrorState, EmptyState } from '../components';
+
+// Database queries
+import * as PhotoQueries from '../database/queries/photos';
+import type { Photo } from '../database/queries/photos';
+import { UsageManager } from '../services/UsageManager';
 
 type ScreenshotsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Screenshots'>;
 };
 
-type Screenshot = {
-  id: string;
-  uri: string;
-  filename: string;
-  size: string;
-  date: string;
+// Extended photo type with selection state
+type ScreenshotWithSelection = Photo & {
   selected: boolean;
 };
 
 type ScreenshotGroup = {
   period: string;
-  screenshots: Screenshot[];
-  totalSize: string;
+  screenshots: ScreenshotWithSelection[];
+  totalSize: number; // in bytes
   expanded: boolean;
 };
 
-// Generate mock screenshots grouped by date
-const generateMockScreenshots = (): ScreenshotGroup[] => {
-  return [
-    {
-      period: 'Today',
-      totalSize: '4.2 MB',
-      expanded: true,
-      screenshots: [
-        {
-          id: 'ss-1',
-          uri: 'https://picsum.photos/200/400?random=301',
-          filename: 'Screenshot_20241119_143022.png',
-          size: '1.2 MB',
-          date: 'Today at 2:30 PM',
-          selected: false,
-        },
-        {
-          id: 'ss-2',
-          uri: 'https://picsum.photos/200/400?random=302',
-          filename: 'Screenshot_20241119_120445.png',
-          size: '1.5 MB',
-          date: 'Today at 12:04 PM',
-          selected: false,
-        },
-        {
-          id: 'ss-3',
-          uri: 'https://picsum.photos/200/400?random=303',
-          filename: 'Screenshot_20241119_091235.png',
-          size: '1.5 MB',
-          date: 'Today at 9:12 AM',
-          selected: false,
-        },
-      ],
-    },
-    {
-      period: 'Yesterday',
-      totalSize: '6.8 MB',
-      expanded: false,
-      screenshots: [
-        {
-          id: 'ss-4',
-          uri: 'https://picsum.photos/200/400?random=304',
-          filename: 'Screenshot_20241118_183045.png',
-          size: '1.4 MB',
-          date: 'Yesterday at 6:30 PM',
-          selected: false,
-        },
-        {
-          id: 'ss-5',
-          uri: 'https://picsum.photos/200/400?random=305',
-          filename: 'Screenshot_20241118_152120.png',
-          size: '1.8 MB',
-          date: 'Yesterday at 3:21 PM',
-          selected: false,
-        },
-        {
-          id: 'ss-6',
-          uri: 'https://picsum.photos/200/400?random=306',
-          filename: 'Screenshot_20241118_111543.png',
-          size: '1.6 MB',
-          date: 'Yesterday at 11:15 AM',
-          selected: false,
-        },
-        {
-          id: 'ss-7',
-          uri: 'https://picsum.photos/200/400?random=307',
-          filename: 'Screenshot_20241118_094512.png',
-          size: '2.0 MB',
-          date: 'Yesterday at 9:45 AM',
-          selected: false,
-        },
-      ],
-    },
-    {
-      period: 'Last Week',
-      totalSize: '18.5 MB',
-      expanded: false,
-      screenshots: Array.from({ length: 12 }, (_, i) => ({
-        id: `ss-week-${i}`,
-        uri: `https://picsum.photos/200/400?random=${310 + i}`,
-        filename: `Screenshot_2024111${i}_${String(Math.floor(Math.random() * 24)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}.png`,
-        size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`,
-        date: `Nov ${11 + Math.floor(i / 2)}`,
-        selected: false,
-      })),
-    },
-    {
-      period: 'Last Month',
-      totalSize: '42.3 MB',
-      expanded: false,
-      screenshots: Array.from({ length: 28 }, (_, i) => ({
-        id: `ss-month-${i}`,
-        uri: `https://picsum.photos/200/400?random=${320 + i}`,
-        filename: `Screenshot_2024100${String(i % 30).padStart(2, '0')}_${String(Math.floor(Math.random() * 24)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}.png`,
-        size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`,
-        date: `Oct ${1 + i}`,
-        selected: false,
-      })),
-    },
-    {
-      period: 'Older',
-      totalSize: '156.7 MB',
-      expanded: false,
-      screenshots: Array.from({ length: 98 }, (_, i) => ({
-        id: `ss-older-${i}`,
-        uri: `https://picsum.photos/200/400?random=${350 + i}`,
-        filename: `Screenshot_202409${String(Math.floor(i / 10) % 3).padStart(2, '0')}_${String(Math.floor(Math.random() * 24)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}.png`,
-        size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`,
-        date: 'Sep 2024',
-        selected: false,
-      })),
-    },
+// Helper to format file size
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
+
+/**
+ * Group screenshots by time periods
+ */
+const groupScreenshotsByPeriod = (screenshots: ScreenshotWithSelection[]): ScreenshotGroup[] => {
+  const now = Date.now();
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
+  const twoDaysAgo = now - 2 * 24 * 60 * 60 * 1000;
+  const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+  const groups: ScreenshotGroup[] = [
+    { period: 'Today', screenshots: [], totalSize: 0, expanded: true },
+    { period: 'Yesterday', screenshots: [], totalSize: 0, expanded: false },
+    { period: 'Last Week', screenshots: [], totalSize: 0, expanded: false },
+    { period: 'Last Month', screenshots: [], totalSize: 0, expanded: false },
+    { period: 'Older', screenshots: [], totalSize: 0, expanded: false },
   ];
+
+  screenshots.forEach(screenshot => {
+    const creationTime = (screenshot.creation_time || 0) * 1000; // Convert to milliseconds
+
+    if (creationTime >= oneDayAgo) {
+      groups[0].screenshots.push(screenshot);
+      groups[0].totalSize += screenshot.file_size;
+    } else if (creationTime >= twoDaysAgo) {
+      groups[1].screenshots.push(screenshot);
+      groups[1].totalSize += screenshot.file_size;
+    } else if (creationTime >= oneWeekAgo) {
+      groups[2].screenshots.push(screenshot);
+      groups[2].totalSize += screenshot.file_size;
+    } else if (creationTime >= oneMonthAgo) {
+      groups[3].screenshots.push(screenshot);
+      groups[3].totalSize += screenshot.file_size;
+    } else {
+      groups[4].screenshots.push(screenshot);
+      groups[4].totalSize += screenshot.file_size;
+    }
+  });
+
+  // Filter out empty groups
+  return groups.filter(g => g.screenshots.length > 0);
 };
 
 export default function Screenshots({ navigation }: ScreenshotsProps) {
-  const [groups, setGroups] = useState<ScreenshotGroup[]>(generateMockScreenshots());
+  // State management
+  const [groups, setGroups] = useState<ScreenshotGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Load screenshots from database
+   */
+  const loadScreenshots = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch screenshots from database
+      const screenshots: Photo[] = await PhotoQueries.getScreenshots();
+
+      // Add selection state
+      const screenshotsWithSelection: ScreenshotWithSelection[] = screenshots.map(s => ({
+        ...s,
+        selected: false,
+      }));
+
+      // Group by time periods
+      const groupedScreenshots = groupScreenshotsByPeriod(screenshotsWithSelection);
+
+      setGroups(groupedScreenshots);
+    } catch (err) {
+      console.error('Error loading screenshots:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load screenshots');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Delete selected screenshots with usage limit check
+   */
+  const handleDeleteSelected = async () => {
+    try {
+      // Get all selected screenshots across all groups
+      const selectedScreenshots = groups.flatMap(g => g.screenshots.filter(s => s.selected));
+
+      if (selectedScreenshots.length === 0) {
+        return;
+      }
+
+      // Check usage limits
+      const usageManager = new UsageManager();
+      const { allowed, remaining } = await usageManager.canCleanupDuplicates(selectedScreenshots.length);
+
+      if (!allowed) {
+        Alert.alert(
+          'Cleanup Limit Reached',
+          `You can only delete ${remaining} more screenshots this month on the free plan. Upgrade to Pro for unlimited deletions.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+          ]
+        );
+        return;
+      }
+
+      // Calculate total size to save
+      const totalSize = selectedScreenshots.reduce((sum, s) => sum + s.file_size, 0);
+
+      // Confirm deletion
+      Alert.alert(
+        'Delete Screenshots',
+        `Are you sure you want to delete ${selectedScreenshots.length} screenshot${selectedScreenshots.length > 1 ? 's' : ''}? This will free up ${formatBytes(totalSize)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Delete from database (soft delete)
+                for (const screenshot of selectedScreenshots) {
+                  await PhotoQueries.deletePhoto(screenshot.id);
+                }
+
+                // Record cleanup in usage limits
+                await usageManager.recordCleanup(selectedScreenshots.length);
+
+                // Reload screenshots
+                await loadScreenshots();
+
+                Alert.alert('Success', `${selectedScreenshots.length} screenshot${selectedScreenshots.length > 1 ? 's' : ''} deleted, ${formatBytes(totalSize)} freed!`);
+              } catch (err) {
+                console.error('Error deleting screenshots:', err);
+                Alert.alert('Error', 'Failed to delete screenshots. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Error in delete handler:', err);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
+  /**
+   * Delete entire group
+   */
+  const handleDeleteGroup = async (group: ScreenshotGroup) => {
+    try {
+      const usageManager = new UsageManager();
+      const { allowed, remaining } = await usageManager.canCleanupDuplicates(group.screenshots.length);
+
+      if (!allowed) {
+        Alert.alert(
+          'Cleanup Limit Reached',
+          `You can only delete ${remaining} more screenshots this month. Upgrade to Pro for unlimited deletions.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+          ]
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Delete Group',
+        `Delete all ${group.screenshots.length} screenshots from "${group.period}"? This will free up ${formatBytes(group.totalSize)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                for (const screenshot of group.screenshots) {
+                  await PhotoQueries.deletePhoto(screenshot.id);
+                }
+
+                await usageManager.recordCleanup(group.screenshots.length);
+                await loadScreenshots();
+
+                Alert.alert('Success', `${group.screenshots.length} screenshots deleted!`);
+              } catch (err) {
+                console.error('Error deleting group:', err);
+                Alert.alert('Error', 'Failed to delete group. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Error in delete group handler:', err);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
+  // Load screenshots on mount
+  useEffect(() => {
+    loadScreenshots();
+  }, []);
+
+  // Reload when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadScreenshots();
+    }, [])
+  );
 
   const toggleGroup = (period: string) => {
     setGroups(groups.map(g =>
@@ -168,11 +272,6 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
     ));
   };
 
-  const deleteGroup = (period: string) => {
-    // In real implementation, this would delete the screenshots
-    setGroups(groups.filter(g => g.period !== period));
-  };
-
   const totalSelectedCount = groups.reduce(
     (sum, g) => sum + g.screenshots.filter(s => s.selected).length,
     0
@@ -181,9 +280,48 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
   const totalSelectedSize = groups.reduce((sum, g) => {
     const groupSelectedSize = g.screenshots
       .filter(s => s.selected)
-      .reduce((gSum, s) => gSum + parseFloat(s.size.replace(' MB', '')), 0);
+      .reduce((gSum, s) => gSum + s.file_size, 0);
     return sum + groupSelectedSize;
   }, 0);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <LoadingSpinner size="large" label="Loading screenshots..." />
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <ErrorState
+          title="Failed to Load Screenshots"
+          message={error}
+          onRetry={loadScreenshots}
+        />
+      </View>
+    );
+  }
+
+  // Show empty state
+  if (groups.length === 0) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <EmptyState
+          icon="📸"
+          title="No Screenshots Found"
+          message="Great! You don't have any screenshots cluttering your photo library."
+          action={{
+            label: "Go to Dashboard",
+            onPress: () => navigation.navigate('Dashboard')
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -193,7 +331,7 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
           {groups.reduce((sum, g) => sum + g.screenshots.length, 0)} Screenshots
         </Text>
         <Text className="text-purple-100">
-          Taking up {groups.reduce((sum, g) => sum + parseFloat(g.totalSize.replace(' MB', '')), 0).toFixed(1)} MB
+          Taking up {formatBytes(groups.reduce((sum, g) => sum + g.totalSize, 0))}
         </Text>
       </View>
 
@@ -211,7 +349,7 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
                     {group.period}
                   </Text>
                   <Text className="text-sm text-gray-600">
-                    {group.screenshots.length} screenshots • {group.totalSize}
+                    {group.screenshots.length} screenshots • {formatBytes(group.totalSize)}
                   </Text>
                 </View>
                 <Text className="text-gray-400 text-xl">
@@ -230,7 +368,7 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => deleteGroup(group.period)}
+                  onPress={() => handleDeleteGroup(group)}
                   className="flex-1 bg-red-100 py-2 rounded-lg"
                 >
                   <Text className="text-red-700 text-center font-semibold text-sm">
@@ -264,7 +402,7 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
                           </View>
                         )}
                         <View className="absolute bottom-1 right-1 bg-black/70 px-2 py-0.5 rounded">
-                          <Text className="text-white text-xs">{screenshot.size}</Text>
+                          <Text className="text-white text-xs">{formatBytes(screenshot.file_size)}</Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -284,10 +422,13 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
               {totalSelectedCount} screenshot{totalSelectedCount > 1 ? 's' : ''} selected
             </Text>
             <Text className="font-bold text-gray-800 text-lg">
-              {totalSelectedSize.toFixed(1)} MB to recover
+              {formatBytes(totalSelectedSize)} to recover
             </Text>
           </View>
-          <TouchableOpacity className="bg-red-600 py-4 rounded-xl">
+          <TouchableOpacity
+            className="bg-red-600 py-4 rounded-xl"
+            onPress={handleDeleteSelected}
+          >
             <Text className="text-white text-center font-bold text-lg">
               Delete Selected ({totalSelectedCount})
             </Text>
