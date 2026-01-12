@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { LoadingSpinner, ErrorState } from '../components';
+
+// Services
+import { SubscriptionManager } from '../services/SubscriptionManager';
+import { UserTier } from '../database/queries/usage';
 
 type PaywallProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Paywall'>;
@@ -16,37 +21,221 @@ type PricingPlan = {
   popular?: boolean;
 };
 
-const mockPricingPlans: PricingPlan[] = [
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: '$4.99',
-    period: '/month',
-  },
-  {
-    id: 'yearly',
-    name: 'Yearly',
-    price: '$29.99',
-    period: '/year',
-    savings: 'Save 50%',
-    popular: true,
-  },
-  {
-    id: 'lifetime',
-    name: 'Lifetime',
-    price: '$79.99',
-    period: 'one-time',
-    savings: 'Best Value',
-  },
-];
-
 export default function Paywall({ navigation }: PaywallProps) {
+  // State management
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>('yearly');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
-  const handlePurchase = () => {
-    // In real implementation, this would trigger RevenueCat purchase
-    console.log(`Purchasing ${selectedPlan} plan`);
+  /**
+   * Load pricing plans from SubscriptionManager
+   */
+  const loadPricingPlans = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const subscriptionManager = new SubscriptionManager();
+      await subscriptionManager.initialize();
+
+      // Get offerings from RevenueCat
+      const offerings = await subscriptionManager.getOfferings();
+
+      // Transform to UI format
+      const plans: PricingPlan[] = offerings?.packages.map(pkg => ({
+        id: pkg.identifier,
+        name: pkg.product.title || pkg.identifier,
+        price: pkg.product.priceString || '$0.00',
+        period: pkg.packageType || 'one-time',
+        popular: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual'),
+        savings: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual') ? 'Save 50%' :
+                 pkg.identifier.toLowerCase().includes('lifetime') ? 'Best Value' : undefined,
+      })) || [];
+
+      setPricingPlans(plans);
+
+      // Set default selected plan if available
+      if (plans.length > 0) {
+        const yearlyPlan = plans.find(p => p.id === 'yearly');
+        setSelectedPlan(yearlyPlan ? yearlyPlan.id : plans[0].id);
+      }
+    } catch (err) {
+      console.error('Error loading pricing plans:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load pricing plans');
+
+      // Fallback to mock data for development/testing
+      const mockPlans: PricingPlan[] = [
+        { id: 'monthly', name: 'Monthly', price: '$4.99', period: '/month' },
+        { id: 'yearly', name: 'Yearly', price: '$29.99', period: '/year', savings: 'Save 50%', popular: true },
+        { id: 'lifetime', name: 'Lifetime', price: '$79.99', period: 'one-time', savings: 'Best Value' },
+      ];
+      setPricingPlans(mockPlans);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  /**
+   * Handle purchase flow
+   */
+  const handlePurchase = async () => {
+    try {
+      setIsPurchasing(true);
+
+      const subscriptionManager = new SubscriptionManager();
+      const selectedOffering = pricingPlans.find(p => p.id === selectedPlan);
+
+      if (!selectedOffering) {
+        Alert.alert('Error', 'Please select a plan');
+        return;
+      }
+
+      // Attempt purchase
+      const result = await subscriptionManager.purchasePro(selectedOffering.id);
+
+      if (result.success) {
+        // Update local tier
+        await subscriptionManager.updateLocalTier(UserTier.PRO);
+
+        // Show success message
+        Alert.alert(
+          'Welcome to Pro!',
+          'Your subscription is now active. Enjoy unlimited scans, compression, and more!',
+          [
+            {
+              text: 'Get Started',
+              onPress: () => {
+                // Navigate back to previous screen
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+      } else {
+        // Purchase failed
+        throw new Error(result.error || 'Purchase failed');
+      }
+    } catch (err) {
+      console.error('Error during purchase:', err);
+
+      // Check if it's a RevenueCat not configured error
+      if (err instanceof Error && err.message.includes('not configured')) {
+        // For development: Allow upgrading to Pro locally
+        Alert.alert(
+          'Development Mode',
+          'RevenueCat is not configured yet. Upgrade to Pro locally for testing?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Upgrade Locally',
+              onPress: async () => {
+                try {
+                  const subscriptionManager = new SubscriptionManager();
+                  await subscriptionManager.updateLocalTier(UserTier.PRO);
+                  Alert.alert('Success', 'Upgraded to Pro (local testing mode)');
+                  navigation.goBack();
+                } catch (localErr) {
+                  Alert.alert('Error', 'Failed to upgrade locally');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Purchase Failed',
+          err instanceof Error ? err.message : 'Unable to complete purchase. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  /**
+   * Handle restore purchases
+   */
+  const handleRestorePurchases = async () => {
+    try {
+      setIsRestoring(true);
+
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.restorePurchases();
+
+      if (result.success && result.customerInfo) {
+        // Check if user has Pro entitlement
+        // RevenueCat will automatically update the subscription status
+        await subscriptionManager.updateLocalTier(UserTier.PRO);
+
+        Alert.alert(
+          'Purchases Restored!',
+          'Your Pro subscription has been restored.',
+          [
+            {
+              text: 'Continue',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'No Purchases Found',
+          'We couldn\'t find any previous purchases to restore.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (err) {
+      console.error('Error restoring purchases:', err);
+
+      // Check if it's a RevenueCat not configured error
+      if (err instanceof Error && err.message.includes('not configured')) {
+        Alert.alert(
+          'Development Mode',
+          'RevenueCat is not configured. Purchase restoration is only available in production.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Restore Failed',
+          err instanceof Error ? err.message : 'Unable to restore purchases. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  // Load pricing plans on mount
+  useEffect(() => {
+    loadPricingPlans();
+  }, []);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <LoadingSpinner size="large" label="Loading plans..." />
+      </View>
+    );
+  }
+
+  // Show error state (with fallback to mock data)
+  if (error && pricingPlans.length === 0) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <ErrorState
+          title="Failed to Load Plans"
+          message={error}
+          onRetry={loadPricingPlans}
+        />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -119,7 +308,7 @@ export default function Paywall({ navigation }: PaywallProps) {
             Choose Your Plan
           </Text>
 
-          {mockPricingPlans.map((plan) => (
+          {pricingPlans.map((plan) => (
             <TouchableOpacity
               key={plan.id}
               onPress={() => setSelectedPlan(plan.id)}
@@ -199,22 +388,40 @@ export default function Paywall({ navigation }: PaywallProps) {
         <TouchableOpacity
           onPress={handlePurchase}
           className="bg-blue-600 py-4 rounded-xl mb-2"
+          disabled={isPurchasing}
         >
-          <Text className="text-white text-center font-bold text-lg">
-            Start Pro Trial
-          </Text>
-          <Text className="text-blue-100 text-center text-sm">
-            7 days free, then{' '}
-            {mockPricingPlans.find(p => p.id === selectedPlan)?.price}{' '}
-            {mockPricingPlans.find(p => p.id === selectedPlan)?.period}
-          </Text>
+          {isPurchasing ? (
+            <View className="flex-row justify-center items-center">
+              <ActivityIndicator color="white" />
+              <Text className="text-white font-bold text-lg ml-2">Processing...</Text>
+            </View>
+          ) : (
+            <>
+              <Text className="text-white text-center font-bold text-lg">
+                Start Pro Trial
+              </Text>
+              <Text className="text-blue-100 text-center text-sm">
+                7 days free, then{' '}
+                {pricingPlans.find(p => p.id === selectedPlan)?.price}{' '}
+                {pricingPlans.find(p => p.id === selectedPlan)?.period}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center space-x-4">
-          <TouchableOpacity>
-            <Text className="text-gray-500 text-sm">Restore Purchases</Text>
+          <TouchableOpacity
+            onPress={handleRestorePurchases}
+            disabled={isRestoring || isPurchasing}
+          >
+            <Text className={`text-sm ${isRestoring ? 'text-gray-300' : 'text-gray-500'}`}>
+              {isRestoring ? 'Restoring...' : 'Restore Purchases'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            disabled={isPurchasing || isRestoring}
+          >
             <Text className="text-gray-500 text-sm">Maybe Later</Text>
           </TouchableOpacity>
         </View>
