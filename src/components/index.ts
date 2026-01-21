@@ -23,3 +23,9 @@ export { ProgressBar, StorageBar } from './ProgressBar';
 
 // Labels and badges
 export { Badge, TierBadge, ProOnlyBadge, SavingsBadge } from './Badge';
+
+// Swipe Mode components
+export { default as SwipeCard } from './SwipeCard';
+export { default as SwipeControls } from './SwipeControls';
+export { default as TrashQueuePanel } from './TrashQueuePanel';
+export { default as SwipeTutorialOverlay } from './SwipeTutorialOverlay';

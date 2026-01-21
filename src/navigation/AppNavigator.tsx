@@ -10,6 +10,10 @@ import LargeFiles from '../screens/LargeFiles';
 import Screenshots from '../screens/Screenshots';
 import Settings from '../screens/Settings';
 import Paywall from '../screens/Paywall';
+import SwipeMode from '../screens/SwipeMode';
+
+// Import types
+import type { SwipeCategory } from '../types/swipe';
 
 // Define navigation types for type safety
 export type RootStackParamList = {
@@ -20,6 +24,10 @@ export type RootStackParamList = {
   Screenshots: undefined;
   Settings: undefined;
   Paywall: undefined;
+  SwipeMode: {
+    category: SwipeCategory;
+    photos?: any[]; // Optional pre-loaded photos
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -74,6 +82,14 @@ export default function AppNavigator() {
           component={Paywall}
           options={{
             title: 'Upgrade to Pro',
+            presentation: 'modal', // Show as modal on iOS
+          }}
+        />
+        <Stack.Screen
+          name="SwipeMode"
+          component={SwipeMode}
+          options={{
+            title: 'Swipe Mode',
             presentation: 'modal', // Show as modal on iOS
           }}
         />

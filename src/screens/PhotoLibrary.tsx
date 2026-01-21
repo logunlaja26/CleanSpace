@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 
@@ -10,6 +11,7 @@ import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 import * as PhotoQueries from '../database/queries/photos';
 import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
+import { photoDeletionService } from '../services/PhotoDeletionService';
 
 type PhotoLibraryProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PhotoLibrary'>;
@@ -112,13 +114,26 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                // Delete from database (soft delete)
-                for (const photo of selectedPhotos) {
-                  await PhotoQueries.deletePhoto(photo.id);
+                // Delete from device and database
+                const photoIds = selectedPhotos.map(p => p.id);
+                const result = await photoDeletionService.deletePhotos(photoIds);
+
+                if (!result.success) {
+                  console.error('Some deletions failed:', result.errors);
+                  // Show partial success if some deletions worked
+                  if (result.deletedCount > 0) {
+                    Alert.alert(
+                      'Partial Success',
+                      `${result.deletedCount} of ${selectedPhotos.length} photos deleted. Some deletions failed.`
+                    );
+                  } else {
+                    Alert.alert('Error', 'Failed to delete photos. Please try again.');
+                    return;
+                  }
                 }
 
-                // Record cleanup in usage limits
-                await usageManager.recordCleanup(selectedPhotos.length);
+                // Record cleanup in usage limits for successfully deleted photos
+                await usageManager.recordCleanup(result.deletedCount);
 
                 // Reload photos
                 await loadPhotos();
@@ -126,7 +141,10 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
                 // Exit selection mode
                 setSelectionMode(false);
 
-                Alert.alert('Success', `${selectedPhotos.length} photo${selectedPhotos.length > 1 ? 's' : ''} deleted.`);
+                // Show success message only if all deletions succeeded
+                if (result.success && result.deletedCount === selectedPhotos.length) {
+                  Alert.alert('Success', `${result.deletedCount} photo${result.deletedCount > 1 ? 's' : ''} deleted.`);
+                }
               } catch (err) {
                 console.error('Error deleting photos:', err);
                 Alert.alert('Error', 'Failed to delete photos. Please try again.');
@@ -159,6 +177,20 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
       loadPhotos();
     }, [sortBy])
   );
+
+  // Set header with Swipe Mode button
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SwipeMode', { category: 'all' })}
+          style={{ marginRight: 16 }}
+        >
+          <Ionicons name="swap-horizontal" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const toggleSelection = (id: string) => {
     setPhotos(photos.map(p =>

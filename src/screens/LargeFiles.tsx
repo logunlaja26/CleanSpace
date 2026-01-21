@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 
@@ -9,6 +10,7 @@ import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 import * as PhotoQueries from '../database/queries/photos';
 import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
+import { photoDeletionService } from '../services/PhotoDeletionService';
 
 type LargeFilesProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'LargeFiles'>;
@@ -119,18 +121,27 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                // Delete from database (soft delete)
-                for (const file of selectedFiles) {
-                  await PhotoQueries.deletePhoto(file.id);
+                // Delete from device and database
+                const fileIds = selectedFiles.map(f => f.id);
+                const result = await photoDeletionService.deletePhotos(fileIds);
+
+                if (!result.success && result.deletedCount === 0) {
+                  Alert.alert('Error', 'Failed to delete files. Please try again.');
+                  return;
                 }
 
-                // Record cleanup in usage limits
-                await usageManager.recordCleanup(selectedFiles.length);
+                // Record cleanup in usage limits for successfully deleted photos
+                await usageManager.recordCleanup(result.deletedCount);
 
                 // Reload files
                 await loadLargeFiles();
 
-                Alert.alert('Success', `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} deleted, ${formatBytes(totalSize)} freed!`);
+                // Show appropriate message
+                const message = result.success && result.deletedCount === selectedFiles.length
+                  ? `${result.deletedCount} file${result.deletedCount > 1 ? 's' : ''} deleted, ${formatBytes(totalSize)} freed!`
+                  : `${result.deletedCount} of ${selectedFiles.length} files deleted. Some deletions failed.`;
+
+                Alert.alert(result.success ? 'Success' : 'Partial Success', message);
               } catch (err) {
                 console.error('Error deleting files:', err);
                 Alert.alert('Error', 'Failed to delete files. Please try again.');
@@ -156,6 +167,20 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
       loadLargeFiles();
     }, [])
   );
+
+  // Set header with Swipe Mode button
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SwipeMode', { category: 'largeFiles' })}
+          style={{ marginRight: 16 }}
+        >
+          <Ionicons name="swap-horizontal" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const filteredFiles = files.filter(f =>
     filterType === 'all' ? true : f.media_type === filterType

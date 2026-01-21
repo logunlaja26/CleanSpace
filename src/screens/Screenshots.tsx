@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 
@@ -9,6 +10,7 @@ import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 import * as PhotoQueries from '../database/queries/photos';
 import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
+import { photoDeletionService } from '../services/PhotoDeletionService';
 
 type ScreenshotsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Screenshots'>;
@@ -155,18 +157,27 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                // Delete from database (soft delete)
-                for (const screenshot of selectedScreenshots) {
-                  await PhotoQueries.deletePhoto(screenshot.id);
+                // Delete from device and database
+                const screenshotIds = selectedScreenshots.map(s => s.id);
+                const result = await photoDeletionService.deletePhotos(screenshotIds);
+
+                if (!result.success && result.deletedCount === 0) {
+                  Alert.alert('Error', 'Failed to delete screenshots. Please try again.');
+                  return;
                 }
 
-                // Record cleanup in usage limits
-                await usageManager.recordCleanup(selectedScreenshots.length);
+                // Record cleanup in usage limits for successfully deleted photos
+                await usageManager.recordCleanup(result.deletedCount);
 
                 // Reload screenshots
                 await loadScreenshots();
 
-                Alert.alert('Success', `${selectedScreenshots.length} screenshot${selectedScreenshots.length > 1 ? 's' : ''} deleted, ${formatBytes(totalSize)} freed!`);
+                // Show appropriate message based on deletion results
+                const message = result.success && result.deletedCount === selectedScreenshots.length
+                  ? `${result.deletedCount} screenshot${result.deletedCount > 1 ? 's' : ''} deleted, ${formatBytes(totalSize)} freed!`
+                  : `${result.deletedCount} of ${selectedScreenshots.length} screenshots deleted. Some deletions failed.`;
+
+                Alert.alert(result.success ? 'Success' : 'Partial Success', message);
               } catch (err) {
                 console.error('Error deleting screenshots:', err);
                 Alert.alert('Error', 'Failed to delete screenshots. Please try again.');
@@ -211,14 +222,24 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                for (const screenshot of group.screenshots) {
-                  await PhotoQueries.deletePhoto(screenshot.id);
+                // Delete from device and database
+                const screenshotIds = group.screenshots.map(s => s.id);
+                const result = await photoDeletionService.deletePhotos(screenshotIds);
+
+                if (!result.success && result.deletedCount === 0) {
+                  Alert.alert('Error', 'Failed to delete screenshots. Please try again.');
+                  return;
                 }
 
-                await usageManager.recordCleanup(group.screenshots.length);
+                await usageManager.recordCleanup(result.deletedCount);
                 await loadScreenshots();
 
-                Alert.alert('Success', `${group.screenshots.length} screenshots deleted!`);
+                // Show appropriate message
+                const message = result.success && result.deletedCount === group.screenshots.length
+                  ? `${result.deletedCount} screenshots deleted!`
+                  : `${result.deletedCount} of ${group.screenshots.length} screenshots deleted. Some deletions failed.`;
+
+                Alert.alert(result.success ? 'Success' : 'Partial Success', message);
               } catch (err) {
                 console.error('Error deleting group:', err);
                 Alert.alert('Error', 'Failed to delete group. Please try again.');
@@ -244,6 +265,20 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
       loadScreenshots();
     }, [])
   );
+
+  // Set header with Swipe Mode button
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SwipeMode', { category: 'screenshots' })}
+          style={{ marginRight: 16 }}
+        >
+          <Ionicons name="swap-horizontal" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const toggleGroup = (period: string) => {
     setGroups(groups.map(g =>

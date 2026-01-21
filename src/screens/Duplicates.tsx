@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 
@@ -10,6 +11,7 @@ import * as DuplicateQueries from '../database/queries/duplicates';
 import type { DuplicateGroupWithPhotos } from '../database/queries/duplicates';
 import * as PhotoQueries from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
+import { photoDeletionService } from '../services/PhotoDeletionService';
 
 type DuplicatesProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Duplicates'>;
@@ -152,18 +154,27 @@ export default function Duplicates({ navigation }: DuplicatesProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                // Delete photos from database
-                for (const photo of photosToDelete) {
-                  await PhotoQueries.deletePhoto(photo.photo_id);
+                // Delete photos from device and database
+                const photoIds = photosToDelete.map(p => p.photo_id);
+                const result = await photoDeletionService.deletePhotos(photoIds);
+
+                if (!result.success && result.deletedCount === 0) {
+                  Alert.alert('Error', 'Failed to delete photos. Please try again.');
+                  return;
                 }
 
-                // Record cleanup
-                await usageManager.recordCleanup(photosToDelete.length);
+                // Record cleanup for successfully deleted photos
+                await usageManager.recordCleanup(result.deletedCount);
 
                 // Reload groups
                 await loadDuplicateGroups();
 
-                Alert.alert('Success', `${photosToDelete.length} duplicate${photosToDelete.length > 1 ? 's' : ''} deleted!`);
+                // Show appropriate message
+                const message = result.success && result.deletedCount === photosToDelete.length
+                  ? `${result.deletedCount} duplicate${result.deletedCount > 1 ? 's' : ''} deleted!`
+                  : `${result.deletedCount} of ${photosToDelete.length} duplicates deleted. Some deletions failed.`;
+
+                Alert.alert(result.success ? 'Success' : 'Partial Success', message);
               } catch (err) {
                 console.error('Error deleting duplicates:', err);
                 Alert.alert('Error', 'Failed to delete duplicates. Please try again.');
@@ -213,6 +224,20 @@ export default function Duplicates({ navigation }: DuplicatesProps) {
       loadDuplicateGroups();
     }, [])
   );
+
+  // Set header with Swipe Mode button
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SwipeMode', { category: 'duplicates' })}
+          style={{ marginRight: 16 }}
+        >
+          <Ionicons name="swap-horizontal" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   // Calculate total savings from all groups
   const totalSavings = groups.reduce((sum, g) => {
