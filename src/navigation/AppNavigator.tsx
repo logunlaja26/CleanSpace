@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Import screens (will create these next)
 import Dashboard from '../screens/Dashboard';
@@ -34,66 +35,68 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Dashboard"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#3B82F6', // Blue header
-          },
-          headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-        }}
-      >
-        <Stack.Screen
-          name="Dashboard"
-          component={Dashboard}
-          options={{ title: 'CleanSpace' }}
-        />
-        <Stack.Screen
-          name="PhotoLibrary"
-          component={PhotoLibrary}
-          options={{ title: 'Photo Library' }}
-        />
-        <Stack.Screen
-          name="Duplicates"
-          component={Duplicates}
-          options={{ title: 'Duplicate Photos' }}
-        />
-        <Stack.Screen
-          name="LargeFiles"
-          component={LargeFiles}
-          options={{ title: 'Large Files' }}
-        />
-        <Stack.Screen
-          name="Screenshots"
-          component={Screenshots}
-          options={{ title: 'Screenshots' }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={Settings}
-          options={{ title: 'Settings' }}
-        />
-        <Stack.Screen
-          name="Paywall"
-          component={Paywall}
-          options={{
-            title: 'Upgrade to Pro',
-            presentation: 'modal', // Show as modal on iOS
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Dashboard"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#3B82F6', // Blue header
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
           }}
-        />
-        <Stack.Screen
-          name="SwipeMode"
-          component={SwipeMode}
-          options={{
-            title: 'Swipe Mode',
-            presentation: 'modal', // Show as modal on iOS
-          }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+        >
+          <Stack.Screen
+            name="Dashboard"
+            component={Dashboard}
+            options={{ title: 'CleanSpace' }}
+          />
+          <Stack.Screen
+            name="PhotoLibrary"
+            component={PhotoLibrary}
+            options={{ title: 'Photo Library' }}
+          />
+          <Stack.Screen
+            name="Duplicates"
+            component={Duplicates}
+            options={{ title: 'Duplicate Photos' }}
+          />
+          <Stack.Screen
+            name="LargeFiles"
+            component={LargeFiles}
+            options={{ title: 'Large Files' }}
+          />
+          <Stack.Screen
+            name="Screenshots"
+            component={Screenshots}
+            options={{ title: 'Screenshots' }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={Settings}
+            options={{ title: 'Settings' }}
+          />
+          <Stack.Screen
+            name="Paywall"
+            component={Paywall}
+            options={{
+              title: 'Upgrade to Pro',
+              presentation: 'modal', // Show as modal on iOS
+            }}
+          />
+          <Stack.Screen
+            name="SwipeMode"
+            component={SwipeMode}
+            options={{
+              title: 'Swipe Mode',
+              presentation: 'modal', // Show as modal on iOS
+            }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

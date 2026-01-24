@@ -67,7 +67,7 @@ export class HashGenerator {
     try {
       // Read file as base64
       const fileContent = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       // Generate MD5 hash
@@ -104,8 +104,8 @@ export class HashGenerator {
       // Simplified perceptual hash based on file metadata
       // In production, this should analyze actual image pixels
 
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      const size = 'size' in fileInfo ? fileInfo.size : 0;
+      const fileInfo = await FileSystem.getInfoAsync(uri, { md5: false });
+      const size = (fileInfo.exists && 'size' in fileInfo) ? (fileInfo.size || 0) : 0;
 
       // Create a pseudo-perceptual hash from dimensions and size
       // This is a placeholder - real implementation would analyze pixels

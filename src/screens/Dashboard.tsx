@@ -169,7 +169,7 @@ export default function Dashboard({ navigation }: DashboardProps) {
 
   const handleQuickAction = async (screen: keyof RootStackParamList) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate(screen);
+    navigation.navigate(screen as any);
   };
 
   // Load dashboard data on mount
