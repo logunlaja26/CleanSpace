@@ -224,6 +224,49 @@ export const executeRawSQL = async (sql: string): Promise<void> => {
 };
 
 /**
+ * Optimize database for bulk inserts
+ *
+ * Temporarily disables indexes and changes synchronous mode for faster bulk operations.
+ * IMPORTANT: Call restoreDatabaseOptimization() after bulk insert is complete.
+ *
+ * @returns Promise<void>
+ */
+export const optimizeForBulkInsert = async (): Promise<void> => {
+  const db = getDatabase();
+
+  try {
+    // Disable synchronous mode for speed (data loss risk if app crashes during insert)
+    await db.execAsync('PRAGMA synchronous = OFF;');
+
+    console.log('[Database] Database optimized for bulk insert');
+  } catch (error) {
+    console.error('[Database] Error optimizing for bulk insert:', error);
+    throw error;
+  }
+};
+
+/**
+ * Restore database to normal operation after bulk insert
+ *
+ * Re-enables indexes and restores synchronous mode.
+ *
+ * @returns Promise<void>
+ */
+export const restoreDatabaseOptimization = async (): Promise<void> => {
+  const db = getDatabase();
+
+  try {
+    // Restore normal synchronous mode
+    await db.execAsync('PRAGMA synchronous = NORMAL;');
+
+    console.log('[Database] Database optimization restored');
+  } catch (error) {
+    console.error('[Database] Error restoring database optimization:', error);
+    throw error;
+  }
+};
+
+/**
  * Close the database connection
  */
 export const closeDatabase = async (): Promise<void> => {

@@ -20,6 +20,7 @@
  */
 
 import { getTotalPhotoSize, getPhotoCount } from '../database/queries/photos';
+import { getTotalVideosSize, getVideoCount } from '../database/queries/videos';
 import { getTotalPotentialSavings, getDuplicateStatistics } from '../database/queries/duplicates';
 import { executeQuery, executeQueryFirst, executeNonQuery } from '../database/init';
 
@@ -90,7 +91,9 @@ export class StorageAnalytics {
    * console.log(`Using ${formatBytes(totalSize)} of storage`);
    */
   async calculateTotalStorage(): Promise<number> {
-    return await getTotalPhotoSize(false); // Exclude deleted photos
+    const photoSize = await getTotalPhotoSize(false); // Exclude deleted photos
+    const videoSize = await getTotalVideosSize(); // Get videos size
+    return photoSize + videoSize;
   }
 
   /**
@@ -117,14 +120,9 @@ export class StorageAnalytics {
       []
     );
 
-    // Get videos
-    const videosResult = await executeQueryFirst<{ size: number; count: number }>(
-      `SELECT COALESCE(SUM(file_size), 0) as size, COUNT(*) as count
-       FROM photos
-       WHERE is_deleted = 0
-         AND media_type = 'video';`,
-      []
-    );
+    // Get videos from videos table
+    const videosSize = await getTotalVideosSize();
+    const videosCount = await getVideoCount();
 
     // Get screenshots
     const screenshotsResult = await executeQueryFirst<{ size: number; count: number }>(
@@ -138,10 +136,10 @@ export class StorageAnalytics {
     return {
       totalSize,
       photosSize: photosResult?.size || 0,
-      videosSize: videosResult?.size || 0,
+      videosSize: videosSize,
       screenshotsSize: screenshotsResult?.size || 0,
       photoCount: photosResult?.count || 0,
-      videoCount: videosResult?.count || 0,
+      videoCount: videosCount,
       screenshotCount: screenshotsResult?.count || 0,
     };
   }
@@ -245,19 +243,13 @@ export class StorageAnalytics {
     const duplicateStats = await getDuplicateStatistics();
     const totalSavings = await this.getTotalSavings();
 
-    // Get video count
-    const videoResult = await executeQueryFirst<{ count: number }>(
-      `SELECT COUNT(*) as count
-       FROM photos
-       WHERE is_deleted = 0
-         AND media_type = 'video';`,
-      []
-    );
+    // Get video count from videos table
+    const videoCountResult = await getVideoCount();
 
     const snapshot: Omit<StorageSnapshot, 'id'> = {
       total_size: totalSize,
       photo_count: photoCount,
-      video_count: videoResult?.count || 0,
+      video_count: videoCountResult,
       duplicate_groups: duplicateStats.unresolvedGroups,
       potential_savings: duplicateStats.potentialSavings,
       actual_savings: totalSavings,

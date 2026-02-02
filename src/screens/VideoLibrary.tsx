@@ -6,96 +6,94 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
-import { colors, typography } from '../theme';
+import { colors, spacing, typography } from '../theme';
 
 // Database queries
-import * as PhotoQueries from '../database/queries/photos';
-import type { Photo } from '../database/queries/photos';
+import * as VideoQueries from '../database/queries/videos';
+import type { Video } from '../database/queries/videos';
 import { UsageManager } from '../services/UsageManager';
-import { photoDeletionService } from '../services/PhotoDeletionService';
+import { mediaDeletionService } from '../services/MediaDeletionService';
 
-type PhotoLibraryProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'PhotoLibrary'>;
+type VideoLibraryProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'VideoLibrary'>;
 };
 
-// Extended photo type with selection state
-type PhotoWithSelection = Photo & {
+// Extended video type with selection state
+type VideoWithSelection = Video & {
   selected: boolean;
 };
 
-export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
+export default function VideoLibrary({ navigation }: VideoLibraryProps) {
   // State management
-  const [photos, setPhotos] = useState<PhotoWithSelection[]>([]);
+  const [videos, setVideos] = useState<VideoWithSelection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [sortBy, setSortBy] = useState<'date' | 'size' | 'name'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'size' | 'duration'>('date');
 
-  const selectedCount = photos.filter(p => p.selected).length;
+  const selectedCount = videos.filter(v => v.selected).length;
 
   /**
-   * Load photos from database with sorting
-   * This fetches real photos instead of mock data
+   * Load videos from database with sorting
    */
-  const loadPhotos = async () => {
+  const loadVideos = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Fetch photos from database
-      // TODO: Implement custom sorting in database queries
-      const photoList: Photo[] = await PhotoQueries.getAllPhotos({
-        limit: 1000, // Load first 1000 photos for performance
+      // Fetch videos from database
+      const videoList: Video[] = await VideoQueries.getAllVideos({
+        limit: 1000, // Load first 1000 videos for performance
         offset: 0,
       });
 
-      // Sort in-memory for now (will move to database later for performance)
+      // Sort in-memory based on selected option
       switch (sortBy) {
         case 'date':
-          photoList.sort((a, b) => (b.creation_time || 0) - (a.creation_time || 0));
+          videoList.sort((a, b) => (b.creation_time || 0) - (a.creation_time || 0));
           break;
         case 'size':
-          photoList.sort((a, b) => b.file_size - a.file_size);
+          videoList.sort((a, b) => b.file_size - a.file_size);
           break;
-        case 'name':
-          photoList.sort((a, b) => a.filename.localeCompare(b.filename));
+        case 'duration':
+          videoList.sort((a, b) => (b.duration || 0) - (a.duration || 0));
           break;
       }
 
-      // Add selection state to each photo
-      const photosWithSelection: PhotoWithSelection[] = photoList.map(photo => ({
-        ...photo,
+      // Add selection state to each video
+      const videosWithSelection: VideoWithSelection[] = videoList.map(video => ({
+        ...video,
         selected: false,
       }));
 
-      setPhotos(photosWithSelection);
+      setVideos(videosWithSelection);
     } catch (err) {
-      console.error('Error loading photos:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load photos');
+      console.error('Error loading videos:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load videos');
     } finally {
       setIsLoading(false);
     }
   };
 
   /**
-   * Delete selected photos with usage limit check
+   * Delete selected videos with usage limit check
    */
   const handleDelete = async () => {
     try {
-      const selectedPhotos = photos.filter(p => p.selected);
+      const selectedVideos = videos.filter(v => v.selected);
 
-      if (selectedPhotos.length === 0) {
+      if (selectedVideos.length === 0) {
         return;
       }
 
       // Check usage limits
       const usageManager = new UsageManager();
-      const { allowed, remaining } = await usageManager.canCleanupDuplicates(selectedPhotos.length);
+      const { allowed, remaining } = await usageManager.canCleanupDuplicates(selectedVideos.length);
 
       if (!allowed) {
         Alert.alert(
           'Cleanup Limit Reached',
-          `You can only delete ${remaining} more photos this month on the free plan. Upgrade to Pro for unlimited deletions.`,
+          `You can only delete ${remaining} more items this month on the free plan. Upgrade to Pro for unlimited deletions.`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
@@ -106,8 +104,8 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
 
       // Confirm deletion
       Alert.alert(
-        'Delete Photos',
-        `Are you sure you want to delete ${selectedPhotos.length} photo${selectedPhotos.length > 1 ? 's' : ''}? This cannot be undone.`,
+        'Delete Videos',
+        `Are you sure you want to delete ${selectedVideos.length} video${selectedVideos.length > 1 ? 's' : ''}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -115,115 +113,120 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                // Delete from device and database
-                const photoIds = selectedPhotos.map(p => p.id);
-                const result = await photoDeletionService.deletePhotos(photoIds);
+                // Delete videos from both device and database
+                const videoIds = selectedVideos.map(v => v.id);
+                const result = await mediaDeletionService.deleteVideos(videoIds);
 
                 if (!result.success) {
                   console.error('Some deletions failed:', result.errors);
-                  // Show partial success if some deletions worked
+                  // Show partial success message if some deletions failed
                   if (result.deletedCount > 0) {
                     Alert.alert(
                       'Partial Success',
-                      `${result.deletedCount} of ${selectedPhotos.length} photos deleted. Some deletions failed.`
+                      `${result.deletedCount} of ${selectedVideos.length} videos deleted. Some deletions failed.`
                     );
                   } else {
-                    Alert.alert('Error', 'Failed to delete photos. Please try again.');
+                    Alert.alert('Error', 'Failed to delete videos');
                     return;
                   }
                 }
 
-                // Record cleanup in usage limits for successfully deleted photos
+                // Record cleanup in usage (only for successfully deleted videos)
                 await usageManager.recordCleanup(result.deletedCount);
 
-                // Reload photos
-                await loadPhotos();
+                // Reload videos
+                await loadVideos();
 
                 // Exit selection mode
                 setSelectionMode(false);
 
-                // Show success message only if all deletions succeeded
-                if (result.success && result.deletedCount === selectedPhotos.length) {
-                  Alert.alert('Success', `${result.deletedCount} photo${result.deletedCount > 1 ? 's' : ''} deleted.`);
+                // Only show success alert if deletion was fully successful
+                if (result.success && result.deletedCount === selectedVideos.length) {
+                  Alert.alert('Success', `Deleted ${result.deletedCount} video${result.deletedCount > 1 ? 's' : ''}`);
                 }
               } catch (err) {
-                console.error('Error deleting photos:', err);
-                Alert.alert('Error', 'Failed to delete photos. Please try again.');
+                console.error('Error deleting videos:', err);
+                Alert.alert('Error', 'Failed to delete videos');
               }
             },
           },
         ]
       );
     } catch (err) {
-      console.error('Error in delete handler:', err);
-      Alert.alert('Error', 'An unexpected error occurred.');
+      console.error('Error in handleDelete:', err);
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete videos');
     }
   };
 
-  // Load photos on mount
-  useEffect(() => {
-    loadPhotos();
-  }, []);
+  /**
+   * Toggle selection for a single video
+   */
+  const toggleVideoSelection = (videoId: string) => {
+    if (!selectionMode) return;
 
-  // Reload when sort changes
-  useEffect(() => {
-    if (!isLoading) {
-      loadPhotos();
+    setVideos(prevVideos =>
+      prevVideos.map(v =>
+        v.id === videoId ? { ...v, selected: !v.selected } : v
+      )
+    );
+  };
+
+  /**
+   * Toggle selection mode
+   */
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      // Deselect all when exiting selection mode
+      setVideos(prevVideos => prevVideos.map(v => ({ ...v, selected: false })));
     }
+    setSelectionMode(!selectionMode);
+  };
+
+  /**
+   * Select all videos
+   */
+  const selectAll = () => {
+    setVideos(prevVideos => prevVideos.map(v => ({ ...v, selected: true })));
+  };
+
+  /**
+   * Deselect all videos
+   */
+  const deselectAll = () => {
+    setVideos(prevVideos => prevVideos.map(v => ({ ...v, selected: false })));
+  };
+
+  // Load videos on mount and when sort option changes
+  useEffect(() => {
+    loadVideos();
   }, [sortBy]);
 
-  // Reload when screen comes into focus
+  // Reload videos when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadPhotos();
+      loadVideos();
     }, [sortBy])
   );
 
-  // Set header with Swipe Mode button
+  // Set up header with Swipe Mode button
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('SwipeMode', { category: 'all', mediaType: 'photo' })}
+          onPress={() => navigation.navigate('SwipeMode', { category: 'videos', mediaType: 'video' })}
           style={{ marginRight: 16 }}
         >
-          <Ionicons name="swap-horizontal" size={24} color="#fff" />
+          <Ionicons name="swap-horizontal" size={24} color="white" />
         </TouchableOpacity>
       ),
     });
   }, [navigation]);
 
-  const togglePhotoSelection = (photoId: string) => {
-    if (!selectionMode) return;
-
-    setPhotos(prevPhotos =>
-      prevPhotos.map(p =>
-        p.id === photoId ? { ...p, selected: !p.selected } : p
-      )
-    );
-  };
-
-  const toggleSelectionMode = () => {
-    if (selectionMode) {
-      // Deselect all when exiting selection mode
-      setPhotos(prevPhotos => prevPhotos.map(p => ({ ...p, selected: false })));
-    }
-    setSelectionMode(!selectionMode);
-  };
-
-  const selectAll = () => {
-    setPhotos(prevPhotos => prevPhotos.map(p => ({ ...p, selected: true })));
-  };
-
-  const deselectAll = () => {
-    setPhotos(prevPhotos => prevPhotos.map(p => ({ ...p, selected: false })));
-  };
-
   // Show loading state
   if (isLoading) {
     return (
-      <View className="flex-1 bg-white justify-center items-center">
-        <LoadingSpinner size="large" label="Loading your photos..." />
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <LoadingSpinner size="large" label="Loading videos..." />
       </View>
     );
   }
@@ -231,24 +234,24 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
   // Show error state
   if (error) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-gray-50">
         <ErrorState
-          title="Failed to Load Photos"
+          title="Failed to Load Videos"
           message={error}
-          onRetry={loadPhotos}
+          onRetry={loadVideos}
         />
       </View>
     );
   }
 
   // Show empty state
-  if (photos.length === 0) {
+  if (videos.length === 0) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-gray-50">
         <EmptyState
-          icon="📷"
-          title="No Photos Found"
-          message="Start a scan from the Dashboard to analyze your photo library."
+          icon="🎬"
+          title="No Videos Found"
+          message="Start a scan to discover videos in your library"
           action={{
             label: "Go to Dashboard",
             onPress: () => navigation.navigate('Dashboard')
@@ -264,7 +267,7 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
       <View className="bg-white p-4 border-b border-gray-200">
         <View className="flex-row justify-between items-center mb-3">
           <Text style={[typography.label.large, { color: colors.text.primary }]}>
-            {photos.length} photo{photos.length !== 1 ? 's' : ''}
+            {videos.length} video{videos.length !== 1 ? 's' : ''}
           </Text>
 
           {/* Sort Options */}
@@ -286,11 +289,11 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setSortBy('name')}
-              className={`px-3 py-1 rounded-full ${sortBy === 'name' ? 'bg-blue-600' : 'bg-gray-200'}`}
+              onPress={() => setSortBy('duration')}
+              className={`px-3 py-1 rounded-full ${sortBy === 'duration' ? 'bg-blue-600' : 'bg-gray-200'}`}
             >
-              <Text className={sortBy === 'name' ? 'text-white text-xs' : 'text-gray-700 text-xs'}>
-                Name
+              <Text className={sortBy === 'duration' ? 'text-white text-xs' : 'text-gray-700 text-xs'}>
+                Duration
               </Text>
             </TouchableOpacity>
           </View>
@@ -315,37 +318,37 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
           ) : (
             <View className="flex-row gap-2">
               <TouchableOpacity
-                onPress={() => navigation.navigate('SwipeMode', { category: 'all', mediaType: 'photo' })}
+                onPress={() => navigation.navigate('SwipeMode', { category: 'videos', mediaType: 'video' })}
                 className="flex-row items-center px-3 py-1 bg-purple-600 rounded"
               >
                 <Ionicons name="swap-horizontal" size={14} color="white" style={{ marginRight: 4 }} />
                 <Text className="text-white text-xs">Swipe Mode</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={toggleSelectionMode} className="px-3 py-1 bg-blue-600 rounded">
-                <Text className="text-white text-xs">Select Photos</Text>
+                <Text className="text-white text-xs">Select Videos</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </View>
 
-      {/* Photo Grid */}
+      {/* Video Grid */}
       <FlashList
-        data={photos}
+        data={videos}
         keyExtractor={(item) => item.id}
         numColumns={3}
         renderItem={({ item }) => (
-          <PhotoThumbnail
-            photo={item}
+          <VideoThumbnail
+            video={item}
             selected={item.selected}
             selectionMode={selectionMode}
-            onPress={() => togglePhotoSelection(item.id)}
+            onPress={() => toggleVideoSelection(item.id)}
           />
         )}
         contentContainerStyle={{ padding: 2 }}
       />
 
-      {/* Action Bar (shown when photos are selected) */}
+      {/* Action Bar (shown when videos are selected) */}
       {selectionMode && selectedCount > 0 && (
         <View className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200">
           <View className="flex-row justify-between items-center">
@@ -366,17 +369,23 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
 }
 
 /**
- * PhotoThumbnail Component
- * Displays a single photo thumbnail with selection checkbox
+ * VideoThumbnail Component
+ * Displays a single video thumbnail with play icon and duration
  */
-interface PhotoThumbnailProps {
-  photo: PhotoWithSelection;
+interface VideoThumbnailProps {
+  video: VideoWithSelection;
   selected: boolean;
   selectionMode: boolean;
   onPress: () => void;
 }
 
-function PhotoThumbnail({ photo, selected, selectionMode, onPress }: PhotoThumbnailProps) {
+function VideoThumbnail({ video, selected, selectionMode, onPress }: VideoThumbnailProps) {
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -384,13 +393,25 @@ function PhotoThumbnail({ photo, selected, selectionMode, onPress }: PhotoThumbn
       style={styles.thumbnail}
       activeOpacity={selectionMode ? 0.7 : 1}
     >
-      {/* Photo Thumbnail */}
+      {/* Video Thumbnail */}
       <View style={styles.thumbnailContainer}>
         <Image
-          source={{ uri: photo.uri }}
+          source={{ uri: video.uri }}
           style={styles.thumbnailImage}
           resizeMode="cover"
         />
+
+        {/* Play Icon Overlay */}
+        <View style={styles.playIconOverlay}>
+          <Ionicons name="play-circle" size={40} color="white" style={{ opacity: 0.9 }} />
+        </View>
+
+        {/* Duration Badge */}
+        {video.duration !== undefined && (
+          <View style={styles.durationBadge}>
+            <Text style={styles.durationText}>{formatDuration(video.duration)}</Text>
+          </View>
+        )}
 
         {/* Selection Checkbox */}
         {selectionMode && (
@@ -403,9 +424,9 @@ function PhotoThumbnail({ photo, selected, selectionMode, onPress }: PhotoThumbn
       </View>
 
       {/* File Size */}
-      {photo.file_size > 0 && (
+      {video.file_size > 0 && (
         <Text style={styles.fileSize}>
-          {formatBytes(photo.file_size)}
+          {formatBytes(video.file_size)}
         </Text>
       )}
     </TouchableOpacity>
@@ -438,6 +459,30 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     width: '100%',
     height: '100%',
+  },
+  playIconOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  durationBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  durationText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
   },
   checkboxContainer: {
     position: 'absolute',

@@ -1018,7 +1018,53 @@ const mockDuplicates = [
 - [X] Handle success/failure states
 - [X] Update UI based on subscription status
 
-**Checkpoint:** ✅ COMPLETED - App is fully functional with real data. All features work end-to-end.
+#### 5.8 Video Support Implementation
+
+**Goal:** Add full support for scanning, storing, and displaying videos alongside photos.
+
+**Phase 1: Database & Scanning**
+- [X] Create video query module `src/database/queries/videos.ts` with 22 functions:
+  - getAllVideos, getVideoById, getVideosByFilter
+  - getLargeVideos, getVideosByDuration
+  - getVideoCount, getTotalVideosSize, getVideoStats
+  - insertVideos, updateVideo, deleteVideo/deleteVideos
+  - hardDeleteVideo, videoExists, getVideosByAlbum
+  - getRecentVideos, searchVideos
+- [X] Update `src/database/queries/index.ts` to export videos module
+- [X] Update `PhotoScanner.ts` to scan videos in separate pass:
+  - Added Video imports and types
+  - Updated ScanResult interface with video counts
+  - Added video scanning after photo scanning (photos: 0-50%, videos: 50-95%)
+  - Created `processVideoBatch()` method
+  - Updated progress reporting to show both photos and videos
+
+**Phase 2: Analytics & Display**
+- [X] Update `StorageAnalytics.ts` to include videos:
+  - `calculateTotalStorage()` now includes both photo and video sizes
+  - `getStorageBreakdown()` queries videos table directly
+  - `takeStorageSnapshot()` uses videos table for accurate counts
+- [X] Update `Dashboard.tsx` to display video statistics:
+  - Added totalVideos and totalMedia fields
+  - Storage Overview Card shows breakdown: Total Media, Photos, Videos
+  - Scan success message shows both photos and videos scanned
+  - Updated "All Media" card to show photo & video counts
+
+**Implementation Notes:**
+- Videos table already existed but was unused
+- PhotoScanner now performs two-pass scanning (photos then videos)
+- Each media type scanned with appropriate MediaLibrary.MediaType
+- Video-specific properties tracked: duration, file_size
+- Transaction methods updated to use `executeTransaction` helper
+- File size detection via `AssetInfo` not available in expo-media-library (defaults to 0)
+
+**TypeScript Fixes Applied:**
+- Removed duplicate PaginationOptions export from videos.ts
+- Fixed transaction methods to use executeTransaction helper
+- Updated preference type casting to handle PreferenceValue union type
+- Fixed ScanType enum conversions in BackgroundScanService
+- Fixed null vs undefined for optional hash fields
+
+**Checkpoint:** ✅ COMPLETED - App now fully supports videos. Scanning, storage analytics, and dashboard display all include video data. All TypeScript compilation errors resolved.
 
 ---
 

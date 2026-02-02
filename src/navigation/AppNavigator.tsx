@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Import screens (will create these next)
 import Dashboard from '../screens/Dashboard';
 import PhotoLibrary from '../screens/PhotoLibrary';
+import VideoLibrary from '../screens/VideoLibrary';
 import Duplicates from '../screens/Duplicates';
 import LargeFiles from '../screens/LargeFiles';
 import Screenshots from '../screens/Screenshots';
@@ -14,12 +15,13 @@ import Paywall from '../screens/Paywall';
 import SwipeMode from '../screens/SwipeMode';
 
 // Import types
-import type { SwipeCategory } from '../types/swipe';
+import type { SwipeCategory, MediaType } from '../types/swipe';
 
 // Define navigation types for type safety
 export type RootStackParamList = {
   Dashboard: undefined;
   PhotoLibrary: undefined;
+  VideoLibrary: undefined;
   Duplicates: undefined;
   LargeFiles: undefined;
   Screenshots: undefined;
@@ -27,7 +29,7 @@ export type RootStackParamList = {
   Paywall: undefined;
   SwipeMode: {
     category: SwipeCategory;
-    photos?: any[]; // Optional pre-loaded photos
+    mediaType: MediaType;           // Whether showing photos or videos
   };
 };
 
@@ -58,6 +60,11 @@ export default function AppNavigator() {
             name="PhotoLibrary"
             component={PhotoLibrary}
             options={{ title: 'Photo Library' }}
+          />
+          <Stack.Screen
+            name="VideoLibrary"
+            component={VideoLibrary}
+            options={{ title: 'Video Library' }}
           />
           <Stack.Screen
             name="Duplicates"

@@ -1,7 +1,7 @@
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Battery from 'expo-battery';
-import { PhotoScanner } from './PhotoScanner';
+import { PhotoScanner, ScanType } from './PhotoScanner';
 import { UsageManager } from './UsageManager';
 import { getPreference } from '../database/queries/preferences';
 
@@ -65,12 +65,12 @@ export class BackgroundScanService {
     try {
       const enabled = (await getPreference('background_scan_enabled')) === 'true';
       const intervalHours = parseInt(
-        (await getPreference('background_scan_interval')) || '24',
+        String((await getPreference('background_scan_interval')) || '24'),
         10
       );
       const requireCharging = (await getPreference('background_scan_only_charging')) !== 'false';
       const minimumBatteryLevel = parseInt(
-        (await getPreference('background_scan_min_battery')) || '20',
+        String((await getPreference('background_scan_min_battery')) || '20'),
         10
       );
       const scanType = ((await getPreference('background_scan_type')) || 'quick') as
@@ -161,10 +161,11 @@ export class BackgroundScanService {
 
         // Perform scan
         console.log(`[Background Scan] Starting ${config.scanType} scan...`);
-        const result = await this.photoScanner.startScan(config.scanType);
+        const scanType = config.scanType === 'quick' ? ScanType.QUICK : ScanType.INCREMENTAL;
+        const result = await this.photoScanner.startScan(scanType);
 
         console.log(
-          `[Background Scan] Completed: ${result.photosFound} photos, ${result.newPhotos} new`
+          `[Background Scan] Completed: ${result.photosScanned} photos scanned, ${result.photosAdded} new photos added`
         );
 
         return BackgroundFetch.BackgroundFetchResult.NewData;
@@ -335,7 +336,8 @@ export class BackgroundScanService {
     if (canRun) {
       const config = await this.getConfig();
       console.log('Starting test scan...');
-      const result = await this.photoScanner.startScan(config.scanType);
+      const scanType = config.scanType === 'quick' ? ScanType.QUICK : ScanType.INCREMENTAL;
+      const result = await this.photoScanner.startScan(scanType);
       console.log('Test scan completed:', result);
     }
   }

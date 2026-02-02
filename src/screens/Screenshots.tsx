@@ -271,7 +271,7 @@ export default function Screenshots({ navigation }: ScreenshotsProps) {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('SwipeMode', { category: 'screenshots' })}
+          onPress={() => navigation.navigate('SwipeMode', { category: 'screenshots', mediaType: 'photo' })}
           style={{ marginRight: 16 }}
         >
           <Ionicons name="swap-horizontal" size={24} color="#fff" />

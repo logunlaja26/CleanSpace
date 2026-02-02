@@ -173,7 +173,7 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('SwipeMode', { category: 'largeFiles' })}
+          onPress={() => navigation.navigate('SwipeMode', { category: 'largeFiles', mediaType: 'photo' })}
           style={{ marginRight: 16 }}
         >
           <Ionicons name="swap-horizontal" size={24} color="#fff" />

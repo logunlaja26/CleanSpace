@@ -339,7 +339,7 @@ export class SyncService {
    */
   async isSyncEnabled(): Promise<boolean> {
     const enabled = await getPreference('cloud_sync_enabled');
-    return enabled?.value === '1' || enabled?.value === 'true';
+    return enabled === '1' || enabled === 'true' || enabled === true;
   }
 
   /**

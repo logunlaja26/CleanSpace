@@ -28,10 +28,12 @@ const VELOCITY_THRESHOLD = 0.7; // Velocity threshold for fast swipes
  *
  * Individual swipeable card with PanResponder for gesture handling.
  * Supports swipe left (trash) and swipe right (keep) gestures.
+ * Supports both photos and videos with appropriate visual indicators.
  * Includes visual feedback overlays and smooth animations.
  */
 export default function SwipeCard({
-  photo,
+  item,
+  mediaType,
   onSwipeLeft,
   onSwipeRight,
   isTopCard,
@@ -148,9 +150,9 @@ export default function SwipeCard({
     ]).start(() => {
       // Call appropriate callback after animation completes
       if (direction === 'left') {
-        onSwipeLeft(photo.id);
+        onSwipeLeft(item.id);
       } else {
-        onSwipeRight(photo.id);
+        onSwipeRight(item.id);
       }
     });
   };
@@ -219,6 +221,13 @@ export default function SwipeCard({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
+  // Helper to format video duration
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Animated.View
       {...panResponder.panHandlers}
@@ -226,19 +235,33 @@ export default function SwipeCard({
     >
       {/* Main card content */}
       <View style={styles.card}>
-        {/* Photo image */}
+        {/* Media image/thumbnail */}
         <Image
-          source={{ uri: photo.uri }}
+          source={{ uri: item.uri }}
           style={styles.image}
           resizeMode="cover"
         />
 
-        {/* Photo info overlay at bottom */}
+        {/* Video play icon overlay (center) */}
+        {mediaType === 'video' && (
+          <View style={styles.playIconOverlay}>
+            <Ionicons name="play-circle" size={80} color="white" style={{ opacity: 0.9 }} />
+          </View>
+        )}
+
+        {/* Video duration badge (top-right) */}
+        {mediaType === 'video' && 'duration' in item && item.duration !== undefined && (
+          <View style={styles.durationBadge}>
+            <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
+          </View>
+        )}
+
+        {/* Media info overlay at bottom */}
         <View style={styles.infoOverlay}>
           <Text style={styles.filename} numberOfLines={1}>
-            {photo.filename}
+            {item.filename}
           </Text>
-          <Text style={styles.fileSize}>{formatBytes(photo.file_size)}</Text>
+          <Text style={styles.fileSize}>{formatBytes(item.file_size)}</Text>
         </View>
 
         {/* Left swipe overlay (Trash) */}
@@ -294,6 +317,31 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  playIconOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    pointerEvents: 'none', // Allow touches to pass through
+  },
+  durationBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 6,
+  },
+  durationText: {
+    color: colors.text.inverse,
+    fontSize: 14,
+    fontWeight: '700',
   },
   infoOverlay: {
     position: 'absolute',

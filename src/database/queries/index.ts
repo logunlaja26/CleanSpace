@@ -13,6 +13,9 @@
 // Photos queries
 export * from './photos';
 
+// Videos queries
+export * from './videos';
+
 // Preferences queries
 export * from './preferences';
 

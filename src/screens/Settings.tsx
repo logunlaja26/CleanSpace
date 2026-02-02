@@ -9,6 +9,7 @@ import { LoadingSpinner, ErrorState } from '../components';
 import * as PreferenceQueries from '../database/queries/preferences';
 import { UsageManager } from '../services/UsageManager';
 import { SyncService } from '../services/SyncService';
+import { runFullDiagnostics } from '../utils/diagnostics';
 
 type SettingsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Settings'>;
@@ -199,6 +200,46 @@ export default function Settings({ navigation }: SettingsProps) {
         },
       ]
     );
+  };
+
+  /**
+   * Run video diagnostics
+   */
+  const handleRunDiagnostics = async () => {
+    try {
+      Alert.alert(
+        'Running Diagnostics',
+        'Checking video support and database status...\n\nCheck the Metro console for detailed output.',
+        [{ text: 'OK' }]
+      );
+
+      const results = await runFullDiagnostics();
+
+      // Build summary message
+      let message = '';
+
+      if (results.video) {
+        message += `Videos Table: ${results.video.tableExists ? '✓ Exists' : '✗ Missing'}\n`;
+        message += `Videos in DB: ${results.video.videoCount}\n`;
+        message += `Photos in DB: ${results.video.photoCount}\n`;
+        message += `Videos on Device: ${results.video.deviceVideoCount}\n\n`;
+
+        message += 'Recommendations:\n';
+        results.video.recommendations.forEach((rec, i) => {
+          message += `${i + 1}. ${rec}\n`;
+        });
+      }
+
+      Alert.alert('Diagnostics Complete', message, [{ text: 'OK' }]);
+
+      console.log('Full diagnostic results:', results);
+    } catch (error) {
+      Alert.alert(
+        'Diagnostics Failed',
+        error instanceof Error ? error.message : 'Unknown error',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Load settings on mount
@@ -517,6 +558,18 @@ export default function Settings({ navigation }: SettingsProps) {
           >
             <Text className="text-gray-700 text-center font-semibold">Clear Cache</Text>
           </TouchableOpacity>
+        </View>
+
+        <View className="p-4 border-b border-gray-200">
+          <TouchableOpacity
+            className="bg-blue-100 py-3 rounded-lg"
+            onPress={handleRunDiagnostics}
+          >
+            <Text className="text-blue-700 text-center font-semibold">Run Video Diagnostics</Text>
+          </TouchableOpacity>
+          <Text className="text-xs text-gray-500 text-center mt-2">
+            Check video support and database status
+          </Text>
         </View>
 
         <View className="p-4">

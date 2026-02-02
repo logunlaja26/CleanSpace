@@ -10,17 +10,21 @@ import type {
   SwipeState,
   SwipeReducerAction,
   SwipeCategory,
+  MediaType,
+  MediaItem,
 } from '../types/swipe';
 import type { Photo } from '../database/queries/photos';
+import type { Video } from '../database/queries/videos';
 
 // Database queries
 import * as PhotoQueries from '../database/queries/photos';
+import * as VideoQueries from '../database/queries/videos';
 import * as DuplicateQueries from '../database/queries/duplicates';
 import * as PreferenceQueries from '../database/queries/preferences';
 
 // Services
 import { UsageManager } from '../services/UsageManager';
-import { photoDeletionService } from '../services/PhotoDeletionService';
+import { mediaDeletionService } from '../services/MediaDeletionService';
 
 // Components
 import {
@@ -42,10 +46,10 @@ type SwipeModeProps = {
 };
 
 /**
- * Initial state for swipe mode
+ * Create initial state for swipe mode
  */
-const initialState: SwipeState = {
-  photos: [],
+const createInitialState = (mediaType: MediaType): SwipeState => ({
+  items: [],
   currentIndex: 0,
   trashQueue: new Set<string>(),
   undoStack: [],
@@ -55,32 +59,33 @@ const initialState: SwipeState = {
   error: null,
   hasMore: true,
   isProcessing: false,
-};
+  mediaType,
+});
 
 /**
  * Reducer for swipe mode state management
  */
 function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState {
   switch (action.type) {
-    case 'LOAD_PHOTOS_START':
+    case 'LOAD_ITEMS_START':
       return { ...state, loading: true, error: null };
 
-    case 'LOAD_PHOTOS_SUCCESS':
+    case 'LOAD_ITEMS_SUCCESS':
       return {
         ...state,
-        photos: action.photos,
+        items: action.items,
         totalCount: action.total,
         hasMore: action.hasMore,
         loading: false,
         error: null,
       };
 
-    case 'LOAD_PHOTOS_ERROR':
+    case 'LOAD_ITEMS_ERROR':
       return { ...state, loading: false, error: action.error };
 
     case 'SWIPE_LEFT': {
       const newTrashQueue = new Set(state.trashQueue);
-      newTrashQueue.add(action.photoId);
+      newTrashQueue.add(action.mediaId);
 
       const newUndoStack = [...state.undoStack];
       if (newUndoStack.length >= 5) {
@@ -88,7 +93,7 @@ function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState
       }
       newUndoStack.push({
         type: 'SWIPE_LEFT',
-        photoId: action.photoId,
+        mediaId: action.mediaId,
         timestamp: Date.now(),
       });
 
@@ -108,7 +113,7 @@ function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState
       }
       newUndoStack.push({
         type: 'SWIPE_RIGHT',
-        photoId: action.photoId,
+        mediaId: action.mediaId,
         timestamp: Date.now(),
       });
 
@@ -130,7 +135,7 @@ function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState
       const newTrashQueue = new Set(state.trashQueue);
 
       if (lastAction.type === 'SWIPE_LEFT') {
-        newTrashQueue.delete(lastAction.photoId);
+        newTrashQueue.delete(lastAction.mediaId);
       }
 
       return {
@@ -156,11 +161,11 @@ function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState
     case 'EMPTY_TRASH_ERROR':
       return { ...state, isProcessing: false, error: action.error };
 
-    case 'LOAD_MORE_PHOTOS':
+    case 'LOAD_MORE_ITEMS':
       return {
         ...state,
-        photos: [...state.photos, ...action.photos],
-        hasMore: action.photos.length > 0,
+        items: [...state.items, ...action.items],
+        hasMore: action.items.length > 0,
       };
 
     default:
@@ -171,127 +176,166 @@ function swipeReducer(state: SwipeState, action: SwipeReducerAction): SwipeState
 /**
  * Get category display name
  */
-function getCategoryName(category: SwipeCategory): string {
+function getCategoryName(category: SwipeCategory, mediaType: MediaType): string {
   switch (category) {
     case 'all':
-      return 'All Photos';
+      return mediaType === 'photo' ? 'All Photos' : 'All Videos';
     case 'screenshots':
       return 'Screenshots';
     case 'duplicates':
       return 'Duplicates';
     case 'largeFiles':
       return 'Large Files';
+    case 'videos':
+      return 'All Videos';
+    case 'largeVideos':
+      return 'Large Videos';
     default:
-      return 'Photos';
+      return mediaType === 'photo' ? 'Photos' : 'Videos';
   }
 }
 
 export default function SwipeMode({ navigation, route }: SwipeModeProps) {
-  const { category } = route.params;
-  const [state, dispatch] = useReducer(swipeReducer, initialState);
+  const { category, mediaType } = route.params;
+  const [state, dispatch] = useReducer(swipeReducer, createInitialState(mediaType));
   const [showTutorial, setShowTutorial] = useState(false);
 
   /**
-   * Load photos based on category
+   * Load media items (photos or videos) based on category and mediaType
    */
-  const loadPhotos = useCallback(async () => {
+  const loadItems = useCallback(async () => {
     try {
-      dispatch({ type: 'LOAD_PHOTOS_START' });
+      dispatch({ type: 'LOAD_ITEMS_START' });
 
-      let photos: Photo[] = [];
+      let items: MediaItem[] = [];
       let total = 0;
       const limit = 50; // Initial batch size
 
-      switch (category) {
-        case 'all':
-          photos = await PhotoQueries.getAllPhotos({ limit, offset: 0 });
-          // Get total count (simplified - in production, add a separate count query)
-          total = photos.length;
-          break;
+      // Load based on mediaType and category
+      if (mediaType === 'photo') {
+        switch (category) {
+          case 'all':
+            items = await PhotoQueries.getAllPhotos({ limit, offset: 0 });
+            total = items.length;
+            break;
 
-        case 'screenshots':
-          photos = await PhotoQueries.getScreenshots({ limit, offset: 0 });
-          total = photos.length;
-          break;
+          case 'screenshots':
+            items = await PhotoQueries.getScreenshots({ limit, offset: 0 });
+            total = items.length;
+            break;
 
-        case 'largeFiles':
-          photos = await PhotoQueries.getLargeFiles(5 * 1024 * 1024, { limit, offset: 0 });
-          total = photos.length;
-          break;
+          case 'largeFiles':
+            items = await PhotoQueries.getLargeFiles(5 * 1024 * 1024, { limit, offset: 0 });
+            total = items.length;
+            break;
 
-        case 'duplicates': {
-          // Load duplicate groups and flatten to individual photos
-          const groups = await DuplicateQueries.getDuplicateGroups();
-          // Flatten duplicate groups to get individual photos
-          // Note: DuplicateGroups need to be loaded with photos included
-          photos = [];
-          total = 0;
-          // TODO: Implement proper duplicate photo loading
-          // For now, duplicates category won't work until we add proper flattening logic
-          break;
+          case 'duplicates': {
+            // Load duplicate groups and flatten to individual photos
+            const groups = await DuplicateQueries.getDuplicateGroups();
+            items = [];
+            total = 0;
+            // TODO: Implement proper duplicate photo loading
+            break;
+          }
+
+          default:
+            items = [];
+            total = 0;
         }
+      } else {
+        // Load videos
+        switch (category) {
+          case 'videos':
+          case 'all':
+            items = await VideoQueries.getAllVideos({ limit, offset: 0 });
+            total = items.length;
+            break;
 
-        default:
-          photos = [];
-          total = 0;
+          case 'largeVideos':
+          case 'largeFiles':
+            items = await VideoQueries.getLargeVideos(10 * 1024 * 1024, limit); // Videos > 10MB
+            total = items.length;
+            break;
+
+          default:
+            items = [];
+            total = 0;
+        }
       }
 
       dispatch({
-        type: 'LOAD_PHOTOS_SUCCESS',
-        photos,
+        type: 'LOAD_ITEMS_SUCCESS',
+        items,
         total,
-        hasMore: photos.length >= limit,
+        hasMore: items.length >= limit,
       });
     } catch (err) {
-      console.error('[SwipeMode] Error loading photos:', err);
+      console.error('[SwipeMode] Error loading items:', err);
       dispatch({
-        type: 'LOAD_PHOTOS_ERROR',
-        error: err instanceof Error ? err.message : 'Failed to load photos',
+        type: 'LOAD_ITEMS_ERROR',
+        error: err instanceof Error ? err.message : `Failed to load ${mediaType === 'photo' ? 'photos' : 'videos'}`,
       });
     }
-  }, [category]);
+  }, [category, mediaType]);
 
   /**
-   * Load more photos (pagination)
+   * Load more items (pagination)
    */
-  const loadMorePhotos = useCallback(async () => {
-    if (!state.hasMore || state.loading || state.photos.length - state.currentIndex > 10) {
-      return; // Don't load if already loading or enough photos in buffer
+  const loadMoreItems = useCallback(async () => {
+    if (!state.hasMore || state.loading || state.items.length - state.currentIndex > 10) {
+      return; // Don't load if already loading or enough items in buffer
     }
 
     try {
       const limit = 50;
-      const offset = state.photos.length;
-      let morePhotos: Photo[] = [];
+      const offset = state.items.length;
+      let moreItems: MediaItem[] = [];
 
-      switch (category) {
-        case 'all':
-          morePhotos = await PhotoQueries.getAllPhotos({ limit, offset });
-          break;
+      if (mediaType === 'photo') {
+        switch (category) {
+          case 'all':
+            moreItems = await PhotoQueries.getAllPhotos({ limit, offset });
+            break;
 
-        case 'screenshots':
-          morePhotos = await PhotoQueries.getScreenshots({ limit, offset });
-          break;
+          case 'screenshots':
+            moreItems = await PhotoQueries.getScreenshots({ limit, offset });
+            break;
 
-        case 'largeFiles':
-          morePhotos = await PhotoQueries.getLargeFiles(5 * 1024 * 1024, { limit, offset });
-          break;
+          case 'largeFiles':
+            moreItems = await PhotoQueries.getLargeFiles(5 * 1024 * 1024, { limit, offset });
+            break;
 
-        case 'duplicates':
-          // For duplicates, we already loaded all in initial load
-          // In production, implement proper pagination for duplicate groups
-          morePhotos = [];
-          break;
+          case 'duplicates':
+            moreItems = [];
+            break;
 
-        default:
-          morePhotos = [];
+          default:
+            moreItems = [];
+        }
+      } else {
+        switch (category) {
+          case 'videos':
+          case 'all':
+            moreItems = await VideoQueries.getAllVideos({ limit, offset });
+            break;
+
+          case 'largeVideos':
+          case 'largeFiles':
+            // Note: getLargeVideos doesn't support offset, so we can't paginate large videos properly
+            // For now, just return empty array (all loaded in initial load)
+            moreItems = [];
+            break;
+
+          default:
+            moreItems = [];
+        }
       }
 
-      dispatch({ type: 'LOAD_MORE_PHOTOS', photos: morePhotos });
+      dispatch({ type: 'LOAD_MORE_ITEMS', items: moreItems });
     } catch (err) {
-      console.error('[SwipeMode] Error loading more photos:', err);
+      console.error('[SwipeMode] Error loading more items:', err);
     }
-  }, [category, state.hasMore, state.loading, state.photos.length, state.currentIndex]);
+  }, [category, mediaType, state.hasMore, state.loading, state.items.length, state.currentIndex]);
 
   /**
    * Check if tutorial should be shown
@@ -325,26 +369,26 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
   /**
    * Handle swipe left (trash)
    */
-  const handleSwipeLeft = useCallback((photoId: string) => {
-    dispatch({ type: 'SWIPE_LEFT', photoId });
+  const handleSwipeLeft = useCallback((mediaId: string) => {
+    dispatch({ type: 'SWIPE_LEFT', mediaId });
 
-    // Load more photos if approaching end
-    if (state.photos.length - state.currentIndex <= 10) {
-      loadMorePhotos();
+    // Load more items if approaching end
+    if (state.items.length - state.currentIndex <= 10) {
+      loadMoreItems();
     }
-  }, [state.photos.length, state.currentIndex, loadMorePhotos]);
+  }, [state.items.length, state.currentIndex, loadMoreItems]);
 
   /**
    * Handle swipe right (keep)
    */
-  const handleSwipeRight = useCallback((photoId: string) => {
-    dispatch({ type: 'SWIPE_RIGHT', photoId });
+  const handleSwipeRight = useCallback((mediaId: string) => {
+    dispatch({ type: 'SWIPE_RIGHT', mediaId });
 
-    // Load more photos if approaching end
-    if (state.photos.length - state.currentIndex <= 10) {
-      loadMorePhotos();
+    // Load more items if approaching end
+    if (state.items.length - state.currentIndex <= 10) {
+      loadMoreItems();
     }
-  }, [state.photos.length, state.currentIndex, loadMorePhotos]);
+  }, [state.items.length, state.currentIndex, loadMoreItems]);
 
   /**
    * Handle undo action
@@ -400,7 +444,8 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
               }
 
               // Perform batch deletion (both device and database)
-              const result = await photoDeletionService.deletePhotos(trashArray);
+              // MediaDeletionService handles both photos and videos
+              const result = await mediaDeletionService.deleteMedia(trashArray, mediaType);
 
               if (!result.success) {
                 console.error('[SwipeMode] Some deletions failed:', result.errors);
@@ -408,32 +453,33 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
                 if (result.deletedCount > 0) {
                   Alert.alert(
                     'Partial Success',
-                    `${result.deletedCount} of ${trashCount} photos deleted. Some deletions failed.`
+                    `${result.deletedCount} of ${trashCount} ${mediaType === 'photo' ? 'photos' : 'videos'} deleted. Some deletions failed.`
                   );
                 }
               }
 
-              // Record cleanup usage for successfully deleted photos
+              // Record cleanup usage for successfully deleted items
               await usageManager.recordCleanup(result.deletedCount);
 
               // Calculate space saved (sum file sizes)
-              const deletedPhotos = state.photos.filter(p => trashArray.includes(p.id));
-              const spaceSaved = deletedPhotos.reduce((sum, p) => sum + p.file_size, 0);
+              const deletedItems = state.items.filter(item => trashArray.includes(item.id));
+              const spaceSaved = deletedItems.reduce((sum, item) => sum + item.file_size, 0);
               const spaceSavedMB = (spaceSaved / (1024 * 1024)).toFixed(1);
 
               dispatch({ type: 'EMPTY_TRASH_SUCCESS' });
 
               // Only show success alert if deletion was fully successful
               if (result.success && result.deletedCount === trashCount) {
+                const itemType = mediaType === 'photo' ? 'photo' : 'video';
                 Alert.alert(
                   'Success!',
-                  `${trashCount} photo${trashCount > 1 ? 's' : ''} deleted. ${spaceSavedMB} MB freed.`
+                  `${trashCount} ${itemType}${trashCount > 1 ? 's' : ''} deleted. ${spaceSavedMB} MB freed.`
                 );
               }
 
-              // Remove deleted photos from state
-              const updatedPhotos = state.photos.filter(p => !trashArray.includes(p.id));
-              dispatch({ type: 'LOAD_PHOTOS_SUCCESS', photos: updatedPhotos, total: updatedPhotos.length, hasMore: state.hasMore });
+              // Remove deleted items from state
+              const updatedItems = state.items.filter(item => !trashArray.includes(item.id));
+              dispatch({ type: 'LOAD_ITEMS_SUCCESS', items: updatedItems, total: updatedItems.length, hasMore: state.hasMore });
             } catch (err) {
               console.error('[SwipeMode] Error emptying trash:', err);
               dispatch({
@@ -446,25 +492,25 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
         },
       ]
     );
-  }, [state.trashQueue, state.photos, state.hasMore, navigation]);
+  }, [state.trashQueue, state.items, state.hasMore, navigation, mediaType]);
 
-  // Load photos on mount and when category changes
+  // Load items on mount and when category changes
   useEffect(() => {
-    loadPhotos();
+    loadItems();
     checkTutorial();
-  }, [loadPhotos, checkTutorial]);
+  }, [loadItems, checkTutorial]);
 
-  // Reload photos when screen comes into focus
+  // Reload items when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadPhotos();
-    }, [loadPhotos])
+      loadItems();
+    }, [loadItems])
   );
 
   // Update header with progress
   useEffect(() => {
     navigation.setOptions({
-      title: `${getCategoryName(category)} (${state.reviewedCount}/${state.totalCount})`,
+      title: `${getCategoryName(category, mediaType)} (${state.reviewedCount}/${state.totalCount})`,
       headerRight: () => (
         <Text
           onPress={handleUndo}
@@ -477,41 +523,42 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
         </Text>
       ),
     });
-  }, [navigation, category, state.reviewedCount, state.totalCount, state.undoStack.length, handleUndo]);
+  }, [navigation, category, mediaType, state.reviewedCount, state.totalCount, state.undoStack.length, handleUndo]);
 
-  // Get current photo and next photos for rendering
-  const currentPhoto = state.photos[state.currentIndex];
-  const nextPhotos = state.photos.slice(state.currentIndex + 1, state.currentIndex + 3);
+  // Get current item and next items for rendering
+  const currentItem = state.items[state.currentIndex];
+  const nextItems = state.items.slice(state.currentIndex + 1, state.currentIndex + 3);
 
   // Render loading state
-  if (state.loading && state.photos.length === 0) {
+  if (state.loading && state.items.length === 0) {
     return (
       <View style={styles.container}>
-        <LoadingSpinner label="Loading photos..." size="large" />
+        <LoadingSpinner label={`Loading ${mediaType === 'photo' ? 'photos' : 'videos'}...`} size="large" />
       </View>
     );
   }
 
   // Render error state
-  if (state.error && state.photos.length === 0) {
+  if (state.error && state.items.length === 0) {
     return (
       <View style={styles.container}>
         <ErrorState
           type="generic"
-          onRetry={loadPhotos}
+          onRetry={loadItems}
         />
       </View>
     );
   }
 
   // Render empty state
-  if (state.photos.length === 0) {
+  if (state.items.length === 0) {
+    const itemType = mediaType === 'photo' ? 'Photos' : 'Videos';
     return (
       <View style={styles.container}>
         <EmptyState
-          icon="📷"
-          title="No Photos Found"
-          message={`No ${getCategoryName(category).toLowerCase()} to review.`}
+          icon={mediaType === 'photo' ? '📷' : '🎬'}
+          title={`No ${itemType} Found`}
+          message={`No ${getCategoryName(category, mediaType).toLowerCase()} to review.`}
           action={{
             label: "Go Back",
             onPress: () => navigation.goBack(),
@@ -522,13 +569,14 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
   }
 
   // Render end-of-queue state
-  if (state.currentIndex >= state.photos.length) {
+  if (state.currentIndex >= state.items.length) {
+    const itemType = mediaType === 'photo' ? 'photo' : 'video';
     return (
       <View style={styles.container}>
         <EmptyState
           icon="🎉"
           title="All Done!"
-          message={`You reviewed ${state.reviewedCount} photo${state.reviewedCount > 1 ? 's' : ''}. ${state.trashQueue.size} queued for deletion.`}
+          message={`You reviewed ${state.reviewedCount} ${itemType}${state.reviewedCount > 1 ? 's' : ''}. ${state.trashQueue.size} queued for deletion.`}
           action={{
             label: state.trashQueue.size > 0 ? 'Empty Trash' : 'Go Back',
             onPress: state.trashQueue.size > 0 ? handleEmptyTrash : () => navigation.goBack(),
@@ -543,33 +591,35 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
       {/* Render swipe cards (current + next 2) */}
       <View style={styles.cardStack}>
         {/* Render cards in reverse order so top card is last (highest z-index) */}
-        {[...nextPhotos].reverse().map((photo, index) => (
+        {[...nextItems].reverse().map((item, index) => (
           <SwipeCard
-            key={photo.id}
-            photo={photo}
+            key={item.id}
+            item={item}
+            mediaType={mediaType}
             onSwipeLeft={handleSwipeLeft}
             onSwipeRight={handleSwipeRight}
             isTopCard={false}
             zIndex={index}
           />
         ))}
-        {currentPhoto && (
+        {currentItem && (
           <SwipeCard
-            key={currentPhoto.id}
-            photo={currentPhoto}
+            key={currentItem.id}
+            item={currentItem}
+            mediaType={mediaType}
             onSwipeLeft={handleSwipeLeft}
             onSwipeRight={handleSwipeRight}
             isTopCard={true}
-            zIndex={nextPhotos.length + 1}
+            zIndex={nextItems.length + 1}
           />
         )}
       </View>
 
       {/* Swipe controls (alternative tap buttons) */}
       <SwipeControls
-        onTrash={() => currentPhoto && handleSwipeLeft(currentPhoto.id)}
-        onKeep={() => currentPhoto && handleSwipeRight(currentPhoto.id)}
-        disabled={!currentPhoto || state.isProcessing}
+        onTrash={() => currentItem && handleSwipeLeft(currentItem.id)}
+        onKeep={() => currentItem && handleSwipeRight(currentItem.id)}
+        disabled={!currentItem || state.isProcessing}
       />
 
       {/* Trash queue panel at bottom */}

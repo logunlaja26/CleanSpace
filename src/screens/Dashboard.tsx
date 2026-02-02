@@ -22,6 +22,8 @@ type DashboardProps = {
 // Dashboard data type
 interface DashboardData {
   totalPhotos: number;
+  totalVideos: number;
+  totalMedia: number;
   totalSize: string;
   freeSpace: string;
   duplicateGroups: number;
@@ -38,6 +40,8 @@ export default function Dashboard({ navigation }: DashboardProps) {
   // State management
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalPhotos: 0,
+    totalVideos: 0,
+    totalMedia: 0,
     totalSize: '0 GB',
     freeSpace: '0 GB',
     duplicateGroups: 0,
@@ -87,8 +91,12 @@ export default function Dashboard({ navigation }: DashboardProps) {
       const savings = await storageAnalytics.estimateSavings();
 
       // Format the data for the UI
+      const totalMedia = storageData.photoCount + storageData.videoCount + storageData.screenshotCount;
+
       setDashboardData({
         totalPhotos: storageData.photoCount,
+        totalVideos: storageData.videoCount,
+        totalMedia: totalMedia,
         totalSize: formatBytes(storageData.totalSize),
         freeSpace: '0 GB', // TODO: Get from device storage API
         duplicateGroups: duplicateGroups.length,
@@ -149,9 +157,14 @@ export default function Dashboard({ navigation }: DashboardProps) {
       await loadDashboardData();
 
       // Show success message
+      const mediaMessage = [
+        result.photosScanned > 0 ? `${result.photosScanned} photos` : null,
+        result.videosScanned > 0 ? `${result.videosScanned} videos` : null,
+      ].filter(Boolean).join(' and ');
+
       Alert.alert(
         'Scan Complete!',
-        `Scanned ${result.photosScanned} photos in ${Math.round(result.duration / 1000)}s.`,
+        `Scanned ${mediaMessage} in ${Math.round(result.duration / 1000)}s.`,
         [{ text: 'OK' }]
       );
 
@@ -230,9 +243,21 @@ export default function Dashboard({ navigation }: DashboardProps) {
           Storage Overview
         </Text>
         <View className="flex-row justify-between mb-3">
-          <Text style={[typography.body.default, { color: colors.text.secondary }]}>Total Photos</Text>
+          <Text style={[typography.body.default, { color: colors.text.secondary }]}>Total Media</Text>
           <Text style={[typography.label.large, { color: colors.text.primary }]}>
+            {dashboardData.totalMedia.toLocaleString()}
+          </Text>
+        </View>
+        <View className="flex-row justify-between mb-3 ml-4">
+          <Text style={[typography.body.small, { color: colors.text.tertiary }]}>Photos</Text>
+          <Text style={[typography.body.small, { color: colors.text.secondary }]}>
             {dashboardData.totalPhotos.toLocaleString()}
+          </Text>
+        </View>
+        <View className="flex-row justify-between mb-3 ml-4">
+          <Text style={[typography.body.small, { color: colors.text.tertiary }]}>Videos</Text>
+          <Text style={[typography.body.small, { color: colors.text.secondary }]}>
+            {dashboardData.totalVideos.toLocaleString()}
           </Text>
         </View>
         <View className="flex-row justify-between mb-3">
@@ -291,10 +316,18 @@ export default function Dashboard({ navigation }: DashboardProps) {
           onPress={() => handleQuickAction('Screenshots')}
         />
 
+        {/* Videos Card */}
+        <QuickActionCard
+          title="Videos"
+          subtitle={`${dashboardData.totalVideos.toLocaleString()} videos found`}
+          badge={<Badge label="Browse" variant="primary" />}
+          onPress={() => handleQuickAction('VideoLibrary')}
+        />
+
         {/* Photo Library Card */}
         <QuickActionCard
-          title="All Photos"
-          subtitle={`Browse all ${dashboardData.totalPhotos.toLocaleString()} photos`}
+          title="All Media"
+          subtitle={`Browse all ${dashboardData.totalMedia.toLocaleString()} items`}
           badge={<Badge label="View" variant="primary" />}
           onPress={() => handleQuickAction('PhotoLibrary')}
         />

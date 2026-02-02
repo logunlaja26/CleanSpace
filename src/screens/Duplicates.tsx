@@ -230,7 +230,7 @@ export default function Duplicates({ navigation }: DuplicatesProps) {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('SwipeMode', { category: 'duplicates' })}
+          onPress={() => navigation.navigate('SwipeMode', { category: 'duplicates', mediaType: 'photo' })}
           style={{ marginRight: 16 }}
         >
           <Ionicons name="swap-horizontal" size={24} color="#fff" />
