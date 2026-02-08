@@ -20,8 +20,8 @@ import { colors, spacingAliases as spacing } from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const SWIPE_THRESHOLD = 120; // Pixels to swipe before action triggers
-const VELOCITY_THRESHOLD = 0.7; // Velocity threshold for fast swipes
+const SWIPE_THRESHOLD = 40; // Pixels to swipe before action triggers (optimized for natural gestures)
+const VELOCITY_THRESHOLD = 0.25; // Velocity threshold for fast swipes (optimized for quick flicks)
 
 /**
  * SwipeCard Component
@@ -68,8 +68,8 @@ export default function SwipeCard({
         position.setValue({ x: gesture.dx, y: gesture.dy });
 
         // Calculate rotation based on horizontal movement
-        // Rotation range: -30deg to +30deg
-        const rotationValue = gesture.dx / SCREEN_WIDTH;
+        // More responsive rotation for better visual feedback
+        const rotationValue = (gesture.dx / SCREEN_WIDTH) * 1.2;
         rotate.setValue(rotationValue);
       },
 
@@ -78,14 +78,19 @@ export default function SwipeCard({
 
         if (!isTopCard) return;
 
-        // Determine if swipe threshold was met
+        // Calculate swipe metrics
         const swipeDistance = Math.abs(gesture.dx);
         const swipeVelocity = Math.abs(gesture.vx);
-        const isHorizontalSwipe = Math.abs(gesture.dx) > Math.abs(gesture.dy);
 
-        const shouldSwipe =
-          (swipeDistance > SWIPE_THRESHOLD || swipeVelocity > VELOCITY_THRESHOLD) &&
-          isHorizontalSwipe;
+        // Allow slightly diagonal swipes (horizontal bias must be > 60% vs vertical)
+        const horizontalBias = Math.abs(gesture.dx) / (Math.abs(gesture.dy) + 1);
+        const isHorizontalEnough = horizontalBias > 0.6;
+
+        // Prioritize velocity for fast swipes, distance for slower swipes
+        const fastSwipe = swipeVelocity > VELOCITY_THRESHOLD;
+        const farSwipe = swipeDistance > SWIPE_THRESHOLD;
+
+        const shouldSwipe = (fastSwipe || farSwipe) && isHorizontalEnough;
 
         if (shouldSwipe) {
           // Determine swipe direction
@@ -116,14 +121,14 @@ export default function SwipeCard({
     Animated.parallel([
       Animated.spring(position, {
         toValue: { x: 0, y: 0 },
-        tension: 40,
-        friction: 7,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
       }),
       Animated.spring(rotate, {
         toValue: 0,
-        tension: 40,
-        friction: 7,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
       }),
     ]).start();
@@ -138,13 +143,13 @@ export default function SwipeCard({
     Animated.parallel([
       Animated.timing(position, {
         toValue: { x: targetX, y: 0 },
-        duration: 300,
-        easing: Easing.inOut(Easing.ease),
+        duration: 250,
+        easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 300,
+        duration: 250,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -163,7 +168,7 @@ export default function SwipeCard({
   const getCardRotation = () => {
     return rotate.interpolate({
       inputRange: [-1, 0, 1],
-      outputRange: ['-30deg', '0deg', '30deg'],
+      outputRange: ['-40deg', '0deg', '40deg'],
     });
   };
 
@@ -172,8 +177,8 @@ export default function SwipeCard({
    */
   const getLeftOverlayOpacity = () => {
     return position.x.interpolate({
-      inputRange: [-SCREEN_WIDTH / 2, -50, 0],
-      outputRange: [1, 0.5, 0],
+      inputRange: [-SCREEN_WIDTH / 2, -SWIPE_THRESHOLD, -20, 0],
+      outputRange: [1, 0.7, 0.3, 0],
       extrapolate: 'clamp',
     });
   };
@@ -183,8 +188,8 @@ export default function SwipeCard({
    */
   const getRightOverlayOpacity = () => {
     return position.x.interpolate({
-      inputRange: [0, 50, SCREEN_WIDTH / 2],
-      outputRange: [0, 0.5, 1],
+      inputRange: [0, 20, SWIPE_THRESHOLD, SCREEN_WIDTH / 2],
+      outputRange: [0, 0.3, 0.7, 1],
       extrapolate: 'clamp',
     });
   };

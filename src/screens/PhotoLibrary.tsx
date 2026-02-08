@@ -26,10 +26,11 @@ type PhotoWithSelection = Photo & {
 export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
   // State management
   const [photos, setPhotos] = useState<PhotoWithSelection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'size' | 'name'>('date');
+  const isFirstMount = React.useRef(true);
 
   const selectedCount = photos.filter(p => p.selected).length;
 
@@ -37,7 +38,7 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
    * Load photos from database with sorting
    * This fetches real photos instead of mock data
    */
-  const loadPhotos = async () => {
+  const loadPhotos = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -48,6 +49,8 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
         limit: 1000, // Load first 1000 photos for performance
         offset: 0,
       });
+
+      console.log(`[PhotoLibrary] Loaded ${photoList.length} photos from database`);
 
       // Sort in-memory for now (will move to database later for performance)
       switch (sortBy) {
@@ -70,12 +73,12 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
 
       setPhotos(photosWithSelection);
     } catch (err) {
-      console.error('Error loading photos:', err);
+      console.error('[PhotoLibrary] Error loading photos:', err);
       setError(err instanceof Error ? err.message : 'Failed to load photos');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sortBy]);
 
   /**
    * Delete selected photos with usage limit check
@@ -160,23 +163,20 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
     }
   };
 
-  // Load photos on mount
+  // Load photos on mount and when sort changes
   useEffect(() => {
     loadPhotos();
-  }, []);
+  }, [sortBy, loadPhotos]);
 
-  // Reload when sort changes
-  useEffect(() => {
-    if (!isLoading) {
-      loadPhotos();
-    }
-  }, [sortBy]);
-
-  // Reload when screen comes into focus
+  // Reload when screen comes into focus (skip on initial mount)
   useFocusEffect(
     useCallback(() => {
+      if (isFirstMount.current) {
+        isFirstMount.current = false;
+        return;
+      }
       loadPhotos();
-    }, [sortBy])
+    }, [loadPhotos])
   );
 
   // Set header with Swipe Mode button
@@ -219,11 +219,11 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
     setPhotos(prevPhotos => prevPhotos.map(p => ({ ...p, selected: false })));
   };
 
-  // Show loading state
+  // Show loading state (only on initial load)
   if (isLoading) {
     return (
-      <View className="flex-1 bg-white justify-center items-center">
-        <LoadingSpinner size="large" label="Loading your photos..." />
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <LoadingSpinner size="large" label="Loading photos..." />
       </View>
     );
   }
@@ -231,7 +231,7 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
   // Show error state
   if (error) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-gray-50">
         <ErrorState
           title="Failed to Load Photos"
           message={error}
@@ -244,7 +244,7 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
   // Show empty state
   if (photos.length === 0) {
     return (
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-gray-50">
         <EmptyState
           icon="📷"
           title="No Photos Found"
@@ -330,20 +330,23 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
       </View>
 
       {/* Photo Grid */}
-      <FlashList
-        data={photos}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
-        renderItem={({ item }) => (
-          <PhotoThumbnail
-            photo={item}
-            selected={item.selected}
-            selectionMode={selectionMode}
-            onPress={() => togglePhotoSelection(item.id)}
-          />
-        )}
-        contentContainerStyle={{ padding: 2 }}
-      />
+      {photos.length > 0 && (
+        <FlashList
+          data={photos}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          extraData={selectionMode}
+          renderItem={({ item }) => (
+            <PhotoThumbnail
+              photo={item}
+              selected={item.selected}
+              selectionMode={selectionMode}
+              onPress={() => togglePhotoSelection(item.id)}
+            />
+          )}
+          contentContainerStyle={{ padding: 2 }}
+        />
+      )}
 
       {/* Action Bar (shown when photos are selected) */}
       {selectionMode && selectedCount > 0 && (

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useReducer, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, usePreventRemove } from '@react-navigation/native';
 
 // Types
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -199,6 +199,7 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
   const { category, mediaType } = route.params;
   const [state, dispatch] = useReducer(swipeReducer, createInitialState(mediaType));
   const [showTutorial, setShowTutorial] = useState(false);
+  const [allowExit, setAllowExit] = useState(false);
 
   /**
    * Load media items (photos or videos) based on category and mediaType
@@ -468,6 +469,9 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
 
               dispatch({ type: 'EMPTY_TRASH_SUCCESS' });
 
+              // Reset exit prevention
+              setAllowExit(false);
+
               // Only show success alert if deletion was fully successful
               if (result.success && result.deletedCount === trashCount) {
                 const itemType = mediaType === 'photo' ? 'photo' : 'video';
@@ -507,10 +511,42 @@ export default function SwipeMode({ navigation, route }: SwipeModeProps) {
     }, [loadItems])
   );
 
-  // Update header with progress
+  // Prevent accidental exit when trash queue has items (using usePreventRemove hook)
+  usePreventRemove(state.trashQueue.size > 0 && !allowExit, () => {
+    const trashCount = state.trashQueue.size;
+
+    Alert.alert(
+      'Unsaved Progress',
+      `You have ${trashCount} item${trashCount > 1 ? 's' : ''} in trash. What would you like to do?`,
+      [
+        {
+          text: 'Exit Anyway',
+          style: 'destructive',
+          onPress: () => {
+            // Allow exit and navigate back
+            setAllowExit(true);
+            // Use setTimeout to ensure state updates before navigation
+            setTimeout(() => navigation.goBack(), 0);
+          },
+        },
+        {
+          text: 'Stay & Delete',
+          style: 'default',
+          onPress: () => handleEmptyTrash(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  });
+
+  // Update header with progress and disable back button menu
   useEffect(() => {
     navigation.setOptions({
       title: `${getCategoryName(category, mediaType)} (${state.reviewedCount}/${state.totalCount})`,
+      headerBackButtonMenuEnabled: false, // Disable long-press back button menu on iOS
       headerRight: () => (
         <Text
           onPress={handleUndo}
