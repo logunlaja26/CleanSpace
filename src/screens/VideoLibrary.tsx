@@ -14,6 +14,9 @@ import type { Video } from '../database/queries/videos';
 import { UsageManager } from '../services/UsageManager';
 import { mediaDeletionService } from '../services/MediaDeletionService';
 
+// Utils
+import { formatBytes, formatDuration } from '../utils/format';
+
 type VideoLibraryProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'VideoLibrary'>;
 };
@@ -380,12 +383,6 @@ interface VideoThumbnailProps {
 }
 
 function VideoThumbnail({ video, selected, selectionMode, onPress }: VideoThumbnailProps) {
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -406,12 +403,20 @@ function VideoThumbnail({ video, selected, selectionMode, onPress }: VideoThumbn
           <Ionicons name="play-circle" size={40} color="white" style={{ opacity: 0.9 }} />
         </View>
 
-        {/* Duration Badge */}
+        {/* Duration Badge (top-left) */}
         {video.duration !== undefined && (
           <View style={styles.durationBadge}>
             <Text style={styles.durationText}>{formatDuration(video.duration)}</Text>
           </View>
         )}
+
+        {/* File Size Badge (bottom-right - iOS style) */}
+        {/* TEMPORARY DEBUG: Show badge even if file_size is 0 */}
+        <View style={styles.fileSizeBadge}>
+          <Text style={styles.fileSizeText}>
+            {video.file_size > 0 ? formatBytes(video.file_size) : `0 (${video.id.slice(0, 8)})`}
+          </Text>
+        </View>
 
         {/* Selection Checkbox */}
         {selectionMode && (
@@ -422,26 +427,8 @@ function VideoThumbnail({ video, selected, selectionMode, onPress }: VideoThumbn
           </View>
         )}
       </View>
-
-      {/* File Size */}
-      {video.file_size > 0 && (
-        <Text style={styles.fileSize}>
-          {formatBytes(video.file_size)}
-        </Text>
-      )}
     </TouchableOpacity>
   );
-}
-
-/**
- * Helper function to format bytes
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 const styles = StyleSheet.create({
@@ -472,8 +459,8 @@ const styles = StyleSheet.create({
   },
   durationBadge: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
+    top: 4,
+    left: 4,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -483,6 +470,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 10,
     fontWeight: '600',
+  },
+  fileSizeBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 123, 255, 0.9)', // iOS blue
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  fileSizeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'white',
   },
   checkboxContainer: {
     position: 'absolute',
@@ -502,11 +503,5 @@ const styles = StyleSheet.create({
   checkboxSelected: {
     backgroundColor: colors.primary.default,
     borderColor: colors.primary.default,
-  },
-  fileSize: {
-    fontSize: 10,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginTop: 2,
   },
 });

@@ -18,6 +18,9 @@ import type { SwipeCardProps } from '../types/swipe';
 // Theme
 import { colors, spacingAliases as spacing } from '../theme';
 
+// Utils
+import { formatBytes, formatDuration } from '../utils/format';
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD = 40; // Pixels to swipe before action triggers (optimized for natural gestures)
@@ -216,22 +219,6 @@ export default function SwipeCard({
     // This effect allows parent component to trigger swipes via ref
     // Implementation can be added if needed
   }, []);
-
-  // Helper to format file size
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
-
-  // Helper to format video duration
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <Animated.View

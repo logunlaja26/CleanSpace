@@ -290,6 +290,54 @@ export class UsageManager {
   }
 
   /**
+   * DEVELOPMENT ONLY: Reset all usage counters to zero
+   *
+   * This is for testing purposes only. Do NOT use in production.
+   *
+   * @returns Promise<void>
+   * @example
+   * // In your dev environment
+   * await usageManager.devResetUsage();
+   */
+  async devResetUsage(): Promise<void> {
+    if (__DEV__) {
+      await resetMonthlyUsage();
+      console.log('✅ Development: Usage counters reset');
+    } else {
+      console.warn('⚠️ devResetUsage() can only be called in development mode');
+    }
+  }
+
+  /**
+   * DEVELOPMENT ONLY: Set user to Pro tier for testing
+   *
+   * @returns Promise<void>
+   */
+  async devSetPro(): Promise<void> {
+    if (__DEV__) {
+      await updateSubscriptionTier(UserTier.PRO);
+      console.log('✅ Development: Set to PRO tier');
+    } else {
+      console.warn('⚠️ devSetPro() can only be called in development mode');
+    }
+  }
+
+  /**
+   * DEVELOPMENT ONLY: Set user to Free tier for testing
+   *
+   * @returns Promise<void>
+   */
+  async devSetFree(): Promise<void> {
+    if (__DEV__) {
+      await updateSubscriptionTier(UserTier.FREE);
+      await resetMonthlyUsage();
+      console.log('✅ Development: Set to FREE tier with reset counters');
+    } else {
+      console.warn('⚠️ devSetFree() can only be called in development mode');
+    }
+  }
+
+  /**
    * Get usage summary for UI display
    *
    * @returns Promise with complete usage information

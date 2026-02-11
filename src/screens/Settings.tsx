@@ -10,6 +10,7 @@ import * as PreferenceQueries from '../database/queries/preferences';
 import { UsageManager } from '../services/UsageManager';
 import { SyncService } from '../services/SyncService';
 import { runFullDiagnostics } from '../utils/diagnostics';
+import { backfillFileSizes } from '../services/BackfillFileSizes';
 
 type SettingsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Settings'>;
@@ -195,6 +196,42 @@ export default function Settings({ navigation }: SettingsProps) {
             } catch (err) {
               console.error('Error resetting database:', err);
               Alert.alert('Error', 'Failed to reset database. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Backfill file sizes for existing photos/videos
+   */
+  const handleBackfillFileSizes = async () => {
+    Alert.alert(
+      'Update File Sizes',
+      'This will scan your existing photos and videos to add file size information. This may take a few minutes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const result = await backfillFileSizes((current, total) => {
+                console.log(`[Settings] Backfill progress: ${current}/${total}`);
+              });
+
+              Alert.alert(
+                'File Sizes Updated',
+                `Updated ${result.photosUpdated} photos and ${result.videosUpdated} videos!\n\n` +
+                `Failed: ${result.photosFailed} photos, ${result.videosFailed} videos\n` +
+                `Total size: ${(result.totalSize / (1024 * 1024)).toFixed(1)} MB`
+              );
+            } catch (err) {
+              console.error('Error backfilling file sizes:', err);
+              Alert.alert('Error', 'Failed to update file sizes. Please try again.');
+            } finally {
+              setIsLoading(false);
             }
           },
         },
@@ -558,6 +595,18 @@ export default function Settings({ navigation }: SettingsProps) {
           >
             <Text className="text-gray-700 text-center font-semibold">Clear Cache</Text>
           </TouchableOpacity>
+        </View>
+
+        <View className="p-4 border-b border-gray-200">
+          <TouchableOpacity
+            className="bg-green-100 py-3 rounded-lg"
+            onPress={handleBackfillFileSizes}
+          >
+            <Text className="text-green-700 text-center font-semibold">Update File Sizes</Text>
+          </TouchableOpacity>
+          <Text className="text-xs text-gray-500 text-center mt-2">
+            Fix missing file size badges for existing photos/videos
+          </Text>
         </View>
 
         <View className="p-4 border-b border-gray-200">

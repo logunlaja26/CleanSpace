@@ -14,6 +14,9 @@ import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
 import { photoDeletionService } from '../services/PhotoDeletionService';
 
+// Utils
+import { formatBytes } from '../utils/format';
+
 type PhotoLibraryProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PhotoLibrary'>;
 };
@@ -51,6 +54,20 @@ export default function PhotoLibrary({ navigation }: PhotoLibraryProps) {
       });
 
       console.log(`[PhotoLibrary] Loaded ${photoList.length} photos from database`);
+
+      // DEBUG: Check file sizes
+      const photosWithSize = photoList.filter(p => p.file_size > 0).length;
+      const totalSize = photoList.reduce((sum, p) => sum + p.file_size, 0);
+      console.log(`[PhotoLibrary] Photos with file_size > 0: ${photosWithSize}/${photoList.length}`);
+      console.log(`[PhotoLibrary] Total size: ${totalSize} bytes`);
+      if (photoList.length > 0) {
+        console.log(`[PhotoLibrary] Sample photo:`, {
+          id: photoList[0].id,
+          filename: photoList[0].filename,
+          file_size: photoList[0].file_size,
+          uri: photoList[0].uri
+        });
+      }
 
       // Sort in-memory for now (will move to database later for performance)
       switch (sortBy) {
@@ -403,27 +420,17 @@ function PhotoThumbnail({ photo, selected, selectionMode, onPress }: PhotoThumbn
             </View>
           </View>
         )}
-      </View>
 
-      {/* File Size */}
-      {photo.file_size > 0 && (
-        <Text style={styles.fileSize}>
-          {formatBytes(photo.file_size)}
-        </Text>
-      )}
+        {/* File Size Badge (iOS style - bottom right overlay) */}
+        {/* TEMPORARY DEBUG: Show badge even if file_size is 0 */}
+        <View style={styles.fileSizeBadge}>
+          <Text style={styles.fileSizeText}>
+            {photo.file_size > 0 ? formatBytes(photo.file_size) : `0 (${photo.id.slice(0, 8)})`}
+          </Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
-}
-
-/**
- * Helper function to format bytes
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 const styles = StyleSheet.create({
@@ -461,10 +468,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.default,
     borderColor: colors.primary.default,
   },
-  fileSize: {
+  fileSizeBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 123, 255, 0.9)', // iOS blue
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  fileSizeText: {
     fontSize: 10,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginTop: 2,
+    fontWeight: '600',
+    color: 'white',
   },
 });

@@ -221,6 +221,64 @@ export default function Dashboard({ navigation }: DashboardProps) {
 
   return (
     <ScrollView className="flex-1 bg-gray-50">
+      {/* DEV ONLY: Development Controls */}
+      {__DEV__ && (
+        <View className="bg-yellow-500 m-4 p-4 rounded-xl" style={layout.shadow.default}>
+          <Text style={[typography.label.large, { color: colors.text.primary, marginBottom: spacing[3], textAlign: 'center' }]}>
+            🛠️ DEVELOPER CONTROLS
+          </Text>
+          <View className="flex-row justify-between gap-2">
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const usageManager = new UsageManager();
+                await usageManager.devResetUsage();
+                await loadDashboardData();
+                Alert.alert('✅ Dev Reset', 'Usage counters have been reset!');
+              }}
+              className="flex-1 bg-red-600 p-3 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
+                Reset Usage
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const usageManager = new UsageManager();
+                await usageManager.devSetPro();
+                await loadDashboardData();
+                Alert.alert('✅ Dev Pro', 'Set to PRO tier (unlimited scans)');
+              }}
+              className="flex-1 bg-purple-600 p-3 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
+                Set PRO
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const usageManager = new UsageManager();
+                await usageManager.devSetFree();
+                await loadDashboardData();
+                Alert.alert('✅ Dev Free', 'Set to FREE tier with reset counters');
+              }}
+              className="flex-1 bg-gray-600 p-3 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
+                Set FREE
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Free Tier Usage Banner */}
       {dashboardData.tier === 'free' && (
         <TouchableOpacity

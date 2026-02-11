@@ -12,6 +12,9 @@ import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
 import { photoDeletionService } from '../services/PhotoDeletionService';
 
+// Utils
+import { formatBytes } from '../utils/format';
+
 type LargeFilesProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'LargeFiles'>;
 };
@@ -19,15 +22,6 @@ type LargeFilesProps = {
 // Extended photo type with selection state
 type LargeFileWithSelection = Photo & {
   selected: boolean;
-};
-
-// Helper to format file size
-const formatBytes = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 };
 
 // Size is in bytes - convert to MB for threshold checks

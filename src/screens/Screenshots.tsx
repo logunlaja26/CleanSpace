@@ -12,6 +12,9 @@ import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
 import { photoDeletionService } from '../services/PhotoDeletionService';
 
+// Utils
+import { formatBytes } from '../utils/format';
+
 type ScreenshotsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Screenshots'>;
 };
@@ -26,15 +29,6 @@ type ScreenshotGroup = {
   screenshots: ScreenshotWithSelection[];
   totalSize: number; // in bytes
   expanded: boolean;
-};
-
-// Helper to format file size
-const formatBytes = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 };
 
 /**

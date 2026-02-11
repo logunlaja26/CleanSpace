@@ -21,6 +21,7 @@
  */
 
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import { insertPhotos, Photo } from '../database/queries/photos';
 import { insertVideos, Video } from '../database/queries/videos';
 import { insertHash } from '../database/queries/hashes';
@@ -452,6 +453,18 @@ export class PhotoScanner {
         // Detect if screenshot
         const isScreenshot = this.detectScreenshot(asset.filename);
 
+        // Get file size from URI using FileSystem
+        let fileSize = 0;
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists && 'size' in fileInfo) {
+            fileSize = fileInfo.size;
+          }
+        } catch (error) {
+          console.warn(`[PhotoScanner] Could not get file size for ${asset.id}:`, error);
+          // Continue with fileSize = 0
+        }
+
         // Create photo object using only basic asset data
         // OPTIMIZATION: Skip getAssetInfoAsync() - use basic asset properties only
         // Detailed info (EXIF, location) can be fetched later when user views the photo
@@ -459,7 +472,7 @@ export class PhotoScanner {
           id: asset.id,
           uri: asset.uri, // Use basic URI instead of getting localUri from AssetInfo
           filename: asset.filename,
-          file_size: 0, // fileSize not available in basic Asset, will be 0 initially
+          file_size: fileSize, // Get file size from FileSystem
           width: asset.width,
           height: asset.height,
           creation_time: Math.floor(asset.creationTime / 1000), // Convert to seconds
@@ -502,13 +515,25 @@ export class PhotoScanner {
 
     for (const asset of assets) {
       try {
+        // Get file size from URI using FileSystem
+        let fileSize = 0;
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists && 'size' in fileInfo) {
+            fileSize = fileInfo.size;
+          }
+        } catch (error) {
+          console.warn(`[PhotoScanner] Could not get file size for video ${asset.id}:`, error);
+          // Continue with fileSize = 0
+        }
+
         // Create video object using only basic asset data
         // OPTIMIZATION: Skip getAssetInfoAsync() - use basic asset properties only
         const video: Omit<Video, 'created_at' | 'updated_at'> = {
           id: asset.id,
           uri: asset.uri, // Use basic URI instead of getting localUri from AssetInfo
           filename: asset.filename,
-          file_size: 0, // fileSize not available in basic Asset, will be 0 initially
+          file_size: fileSize, // Get file size from FileSystem
           width: asset.width,
           height: asset.height,
           duration: Math.floor(asset.duration), // Duration in seconds
