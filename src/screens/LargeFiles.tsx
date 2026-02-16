@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-na
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as MediaLibrary from 'expo-media-library';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState, EmptyState } from '../components';
 
@@ -11,6 +12,7 @@ import * as PhotoQueries from '../database/queries/photos';
 import type { Photo } from '../database/queries/photos';
 import { UsageManager } from '../services/UsageManager';
 import { photoDeletionService } from '../services/PhotoDeletionService';
+import { compressionService } from '../services/CompressionService';
 
 // Utils
 import { formatBytes } from '../utils/format';
@@ -47,6 +49,8 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'photo' | 'video'>('all');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState({ current: 0, total: 0 });
 
   /**
    * Load large files from database (files > 5MB)
@@ -150,6 +154,149 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
     }
   };
 
+  /**
+   * Compress selected files (Pro feature)
+   */
+  const handleCompress = async () => {
+    try {
+      const selectedFiles = files.filter(f => f.selected);
+
+      if (selectedFiles.length === 0) {
+        return;
+      }
+
+      // Check if user has Pro tier
+      const isPro = await compressionService.isCompressionAvailable();
+      if (!isPro) {
+        Alert.alert(
+          'Pro Feature',
+          'Compression is a Pro feature. Upgrade to compress your photos and save even more space!',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+          ]
+        );
+        return;
+      }
+
+      // Filter out videos (not supported yet)
+      const photoFiles = selectedFiles.filter(f => f.media_type === 'photo');
+      const videoFiles = selectedFiles.filter(f => f.media_type === 'video');
+
+      if (photoFiles.length === 0) {
+        Alert.alert(
+          'Videos Not Supported',
+          'Video compression requires native implementation and is not yet available. Please select photos to compress.'
+        );
+        return;
+      }
+
+      if (videoFiles.length > 0) {
+        Alert.alert(
+          'Videos Skipped',
+          `${videoFiles.length} video${videoFiles.length > 1 ? 's' : ''} will be skipped. Only ${photoFiles.length} photo${photoFiles.length > 1 ? 's' : ''} will be compressed.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Continue', onPress: () => proceedWithCompression(photoFiles) },
+          ]
+        );
+      } else {
+        await proceedWithCompression(photoFiles);
+      }
+    } catch (err) {
+      console.error('Error in compress handler:', err);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
+  /**
+   * Proceed with compression after checks
+   */
+  const proceedWithCompression = async (photoFiles: LargeFileWithSelection[]) => {
+    try {
+      // Request delete permissions upfront (needed to replace originals with compressed versions)
+      const { status } = await MediaLibrary.requestPermissionsAsync(true); // true = writeOnly
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'CleanSpace needs permission to modify your photo library to replace originals with compressed versions.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Get compression estimate
+      const photoIds = photoFiles.map(f => f.id);
+      const estimates = await compressionService.calculateBatchSavings(
+        photoIds,
+        { quality: 0.8, format: 'jpeg' }
+      );
+
+      // Show detailed estimate confirmation with clear explanation
+      Alert.alert(
+        'Compress & Replace Photos',
+        `📊 Compression Details:\n` +
+        `• ${photoFiles.length} photo${photoFiles.length > 1 ? 's' : ''} will be compressed\n` +
+        `• Estimated savings: ${formatBytes(estimates.totalEstimatedSavings)} (${estimates.averagePercentage.toFixed(0)}%)\n` +
+        `• Quality: High (80%) • Format: JPEG\n\n` +
+        `⚠️ How it works:\n` +
+        `Each original photo will be replaced with a smaller, compressed version. The compressed photos will look nearly identical but take up less space.\n\n` +
+        `Note: You may see system prompts to confirm replacing the originals - this is normal and required for compression.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Start Compression',
+            onPress: async () => {
+              try {
+                setIsCompressing(true);
+                setCompressionProgress({ current: 0, total: photoIds.length });
+
+                // Compress photos in batch
+                const results = await compressionService.compressPhotoBatch(
+                  photoIds,
+                  { quality: 0.8, format: 'jpeg' },
+                  (current, total) => {
+                    setCompressionProgress({ current, total });
+                  }
+                );
+
+                // Calculate total savings
+                const totalSaved = results.reduce((sum, r) => sum + r.savingsBytes, 0);
+                const successCount = results.filter(r => r.success).length;
+                const failedCount = results.length - successCount;
+
+                setIsCompressing(false);
+
+                // Show results
+                const resultMessage = failedCount === 0
+                  ? `${successCount} photo${successCount > 1 ? 's' : ''} compressed successfully!\n\n` +
+                    `Space saved: ${formatBytes(totalSaved)}`
+                  : `${successCount} of ${results.length} photos compressed.\n\n` +
+                    `Space saved: ${formatBytes(totalSaved)}\n` +
+                    `${failedCount} file${failedCount > 1 ? 's' : ''} could not be compressed.`;
+
+                Alert.alert(
+                  failedCount === 0 ? 'Compression Complete' : 'Partial Success',
+                  resultMessage
+                );
+
+                // Reload files to show updated sizes
+                await loadLargeFiles();
+              } catch (err) {
+                console.error('Error during compression:', err);
+                setIsCompressing(false);
+                Alert.alert('Error', 'Failed to compress photos. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Error getting compression estimate:', err);
+      Alert.alert('Error', 'Failed to estimate compression savings.');
+    }
+  };
+
   // Load files on mount
   useEffect(() => {
     loadLargeFiles();
@@ -230,6 +377,35 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
 
   return (
     <View className="flex-1 bg-gray-50">
+      {/* Compression Overlay */}
+      {isCompressing && (
+        <View className="absolute inset-0 bg-black/50 z-50 justify-center items-center">
+          <View className="bg-white rounded-2xl p-6 mx-8 items-center">
+            <LoadingSpinner size="large" />
+            <Text className="text-lg font-bold text-gray-800 mt-4">
+              Replacing with Compressed Versions
+            </Text>
+            <Text className="text-gray-600 mt-2">
+              {compressionProgress.current} of {compressionProgress.total} photos
+            </Text>
+            <View className="w-full h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
+              <View
+                className="h-full bg-green-600"
+                style={{
+                  width: compressionProgress.total > 0
+                    ? `${(compressionProgress.current / compressionProgress.total) * 100}%`
+                    : '0%'
+                }}
+              />
+            </View>
+            <Text className="text-sm text-gray-500 mt-3 text-center">
+              Compressing and replacing originals...{'\n'}
+              You may see system prompts - this is normal.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Filter Bar */}
       <View className="bg-white p-3 border-b border-gray-200">
         <View className="flex-row space-x-2">
@@ -339,23 +515,43 @@ export default function LargeFiles({ navigation }: LargeFilesProps) {
             <Text className="font-bold text-gray-800 text-lg">
               {formatBytes(totalSelectedSize)} total
             </Text>
-            <Text className="text-green-600 text-sm">
-              Free up space by deleting these files
-            </Text>
+            {isCompressing ? (
+              <View className="mt-2">
+                <Text className="text-green-600 text-sm font-semibold">
+                  Replacing with compressed versions... {compressionProgress.current}/{compressionProgress.total}
+                </Text>
+                <View className="h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                  <View
+                    className="h-full bg-green-600"
+                    style={{
+                      width: compressionProgress.total > 0
+                        ? `${(compressionProgress.current / compressionProgress.total) * 100}%`
+                        : '0%'
+                    }}
+                  />
+                </View>
+              </View>
+            ) : (
+              <Text className="text-green-600 text-sm">
+                Save space by compressing or deleting these files
+              </Text>
+            )}
           </View>
 
           <View className="flex-row space-x-2">
             <TouchableOpacity
-              className="flex-1 bg-green-600 py-3 rounded-lg"
-              onPress={() => navigation.navigate('Paywall')}
+              className={`flex-1 py-3 rounded-lg ${isCompressing ? 'bg-gray-400' : 'bg-green-600'}`}
+              onPress={handleCompress}
+              disabled={isCompressing}
             >
               <Text className="text-white text-center font-bold">
-                Compress (Pro)
+                {isCompressing ? 'Replacing...' : 'Compress (Pro)'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="flex-1 bg-red-600 py-3 rounded-lg"
+              className={`flex-1 py-3 rounded-lg ${isCompressing ? 'bg-gray-400' : 'bg-red-600'}`}
               onPress={handleDelete}
+              disabled={isCompressing}
             >
               <Text className="text-white text-center font-bold">
                 Delete

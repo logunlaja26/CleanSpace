@@ -11,6 +11,7 @@ import { colors, spacing, typography, layout } from '../theme';
 import { StorageAnalytics } from '../services/StorageAnalytics';
 import { UsageManager } from '../services/UsageManager';
 import { PhotoScanner, ScanType } from '../services/PhotoScanner';
+import { DuplicateDetector } from '../services/DuplicateDetector';
 import * as PhotoQueries from '../database/queries/photos';
 import * as DuplicateQueries from '../database/queries/duplicates';
 import * as ScanHistoryQueries from '../database/queries/scanHistory';
@@ -147,24 +148,34 @@ export default function Dashboard({ navigation }: DashboardProps) {
       // Initialize and start the scanner
       const scanner = new PhotoScanner();
 
-      // Start the scan
+      // Start the scan (photos & videos)
       const result = await scanner.startScan(ScanType.FULL);
 
       // Record the scan
       await usageManager.recordScan();
 
-      // Reload dashboard data to reflect new scan results
+      // Run duplicate detection after scan completes
+      console.log('[Dashboard] Running duplicate detection...');
+      const duplicateDetector = new DuplicateDetector();
+      const duplicateResult = await duplicateDetector.detectAllDuplicates();
+      console.log(`[Dashboard] Found ${duplicateResult.groupsCreated} duplicate groups, ${formatBytes(duplicateResult.totalSavings)} potential savings`);
+
+      // Reload dashboard data to reflect new scan results and duplicate groups
       await loadDashboardData();
 
-      // Show success message
+      // Show comprehensive success message
       const mediaMessage = [
         result.photosScanned > 0 ? `${result.photosScanned} photos` : null,
         result.videosScanned > 0 ? `${result.videosScanned} videos` : null,
       ].filter(Boolean).join(' and ');
 
+      const duplicateMessage = duplicateResult.groupsCreated > 0
+        ? `\n\nFound ${duplicateResult.groupsCreated} duplicate group${duplicateResult.groupsCreated > 1 ? 's' : ''} with ${formatBytes(duplicateResult.totalSavings)} potential savings!`
+        : '\n\nNo duplicates found.';
+
       Alert.alert(
         'Scan Complete!',
-        `Scanned ${mediaMessage} in ${Math.round(result.duration / 1000)}s.`,
+        `Scanned ${mediaMessage} in ${Math.round(result.duration / 1000)}s.${duplicateMessage}`,
         [{ text: 'OK' }]
       );
 

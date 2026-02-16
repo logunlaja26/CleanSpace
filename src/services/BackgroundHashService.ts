@@ -17,7 +17,7 @@
 import { executeQuery } from '../database/init';
 import { insertHash, updateHash } from '../database/queries/hashes';
 import { getPhotoById } from '../database/queries/photos';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Crypto from 'expo-crypto';
 
 /**
