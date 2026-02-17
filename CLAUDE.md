@@ -1221,6 +1221,840 @@ const mockDuplicates = [
 
 ---
 
+### Phase 6.5: RevenueCat Integration & Testing
+
+**Goal:** Complete full RevenueCat integration for iOS subscription management, connect to existing SubscriptionManager service, and enable production-ready in-app purchases.
+
+**Important Context:** CleanSpace already has:
+- ✅ `src/services/SubscriptionManager.ts` service with RevenueCat integration (Phase 4.5)
+- ✅ SQLite-based usage limits system (`usage_limits` table)
+- ✅ Paywall screen with UI (Phase 1.9, integrated in Phase 5.7)
+- ✅ Free tier enforcement via `UsageManager.ts`
+
+**This phase focuses on:** Production setup, testing, and ensuring everything works end-to-end.
+
+---
+
+#### 6.5.1 RevenueCat Dashboard Setup
+
+**Prerequisites:**
+- Apple Developer Account (required for App Store Connect access)
+- App Bundle Identifier (e.g., `com.cleanspace.app`)
+
+**Step 1: Create RevenueCat Account & Project**
+- ✅ Go to [revenueCat.com](https://revenuecat.com) and sign up
+- ✅ Create new project for CleanSpace
+- ✅ Select iOS platform
+- [ ] Save the **iOS API Key** (starts with `appl_...`) - store in `src/config/revenueCat.ts`
+
+**Step 2: Configure Apple App Store Connect**
+- [ ] Log into [App Store Connect](https://appstoreconnect.apple.com)
+- [ ] Navigate to: **My Apps** → **CleanSpace** (or create app if needed)
+- [ ] Go to **Features** → **In-App Purchases**
+- [ ] Create subscription products:
+
+**Recommended Subscription Structure:**
+```
+Product ID: cleanspace_pro_monthly
+Type: Auto-Renewable Subscription
+Subscription Group: CleanSpace Pro
+Price: $4.99/month (adjust as needed)
+Description: "Unlimited scans, compression, background scanning"
+
+Product ID: cleanspace_pro_annual
+Type: Auto-Renewable Subscription
+Subscription Group: CleanSpace Pro
+Price: $39.99/year (adjust as needed)
+Description: "Unlimited scans, compression, background scanning - Annual billing"
+```
+
+**Step 3: Generate App Store Connect API Key**
+- [ ] In App Store Connect: **Users and Access** → **Keys** → **In-App Purchase**
+- [ ] Click **Generate API Key**
+- [ ] Download the `.p8` file (ONLY available once - save securely!)
+- [ ] Note the **Key ID** and **Issuer ID**
+
+**Step 4: Link RevenueCat to App Store**
+- [ ] In RevenueCat dashboard: **Project Settings** → **iOS app**
+- [ ] Upload the App Store Connect API key (`.p8` file)
+- [ ] Enter **Bundle ID**, **Key ID**, and **Issuer ID**
+- [ ] Click **Save**
+
+**Step 5: Create Entitlements & Offerings**
+- [ ] In RevenueCat: **Entitlements** → **Create New Entitlement**
+  - Name: `pro` (matches `ENTITLEMENT_ID` in code)
+  - Description: "CleanSpace Pro Access"
+- [ ] In RevenueCat: **Offerings** → **Create New Offering**
+  - Identifier: `default`
+  - Display Name: "CleanSpace Pro"
+- [ ] Add packages to the `default` offering:
+  - **Monthly Package:**
+    - Identifier: `monthly`
+    - Product: Link to `cleanspace_pro_monthly`
+    - Attach Entitlement: `pro`
+  - **Annual Package:**
+    - Identifier: `annual`
+    - Product: Link to `cleanspace_pro_annual`
+    - Attach Entitlement: `pro`
+
+---
+
+#### 6.5.2 Code Configuration
+
+**Step 1: Verify RevenueCat SDK Installation**
+```bash
+# Should already be installed from Phase 0
+npm list react-native-purchases
+
+# If not installed:
+npm install react-native-purchases
+npx expo install expo-dev-client  # Required for native modules
+```
+
+**Step 2: Create RevenueCat Configuration File**
+
+Create or update `src/config/revenueCat.ts`:
+
+```typescript
+// src/config/revenueCat.ts
+export const REVENUECAT_CONFIG = {
+  // Get this from RevenueCat dashboard → Project Settings → API Keys
+  apiKey: {
+    ios: 'appl_YOUR_IOS_API_KEY_HERE',
+    android: 'goog_YOUR_ANDROID_KEY_HERE', // For future Android support
+  },
+
+  // Must match RevenueCat entitlement identifier
+  entitlementId: 'pro',
+
+  // Must match RevenueCat offering identifier
+  defaultOfferingId: 'default',
+
+  // Product identifiers (must match App Store Connect)
+  products: {
+    monthly: 'cleanspace_pro_monthly',
+    annual: 'cleanspace_pro_annual',
+  },
+} as const;
+
+export type SubscriptionTier = 'free' | 'pro';
+```
+
+**Step 3: Update app.json for iOS Permissions**
+
+Verify `app.json` has proper configuration:
+
+```json
+{
+  "expo": {
+    "ios": {
+      "bundleIdentifier": "com.cleanspace.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "CleanSpace needs access to your photos to find duplicates and help free up storage.",
+        "NSPhotoLibraryAddUsageDescription": "CleanSpace needs permission to save compressed photos.",
+        "NSCameraUsageDescription": "CleanSpace needs camera access for photo capture."
+      }
+    }
+  }
+}
+```
+
+---
+
+#### 6.5.3 Update SubscriptionManager Service
+
+**File:** `src/services/SubscriptionManager.ts`
+
+Ensure the existing service implements all required methods:
+
+```typescript
+import { Platform } from 'react-native';
+import Purchases, {
+  CustomerInfo,
+  PurchasesOfferings,
+  PurchasesPackage,
+  LOG_LEVEL
+} from 'react-native-purchases';
+import { REVENUECAT_CONFIG, SubscriptionTier } from '../config/revenueCat';
+import { updateSubscriptionTier } from '../database/queries/usage';
+
+class SubscriptionManager {
+  private static instance: SubscriptionManager;
+  private initialized: boolean = false;
+  private customerInfo: CustomerInfo | null = null;
+
+  private constructor() {}
+
+  static getInstance(): SubscriptionManager {
+    if (!SubscriptionManager.instance) {
+      SubscriptionManager.instance = new SubscriptionManager();
+    }
+    return SubscriptionManager.instance;
+  }
+
+  /**
+   * Initialize RevenueCat SDK
+   * MUST be called in App.tsx on app launch
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      console.log('[SubscriptionManager] Already initialized');
+      return;
+    }
+
+    try {
+      const apiKey = Platform.select({
+        ios: REVENUECAT_CONFIG.apiKey.ios,
+        android: REVENUECAT_CONFIG.apiKey.android,
+      });
+
+      if (!apiKey) {
+        throw new Error('RevenueCat API key not configured for platform');
+      }
+
+      // Configure RevenueCat
+      Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use LOG_LEVEL.INFO in production
+      Purchases.configure({ apiKey });
+
+      // Get initial customer info
+      this.customerInfo = await Purchases.getCustomerInfo();
+
+      // Sync subscription status to SQLite
+      await this.syncSubscriptionStatus();
+
+      // Listen for updates
+      Purchases.addCustomerInfoUpdateListener(this.handleCustomerInfoUpdate.bind(this));
+
+      this.initialized = true;
+      console.log('[SubscriptionManager] Initialized successfully');
+    } catch (error) {
+      console.error('[SubscriptionManager] Initialization error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle customer info updates from RevenueCat
+   */
+  private async handleCustomerInfoUpdate(customerInfo: CustomerInfo): Promise<void> {
+    this.customerInfo = customerInfo;
+    await this.syncSubscriptionStatus();
+  }
+
+  /**
+   * Sync RevenueCat subscription status to local SQLite database
+   * Critical: This keeps usage_limits table in sync with RevenueCat
+   */
+  private async syncSubscriptionStatus(): Promise<void> {
+    try {
+      const tier = this.getUserTier();
+      await updateSubscriptionTier(tier);
+      console.log(`[SubscriptionManager] Synced tier to database: ${tier}`);
+    } catch (error) {
+      console.error('[SubscriptionManager] Error syncing subscription status:', error);
+    }
+  }
+
+  /**
+   * Get current subscription tier (free or pro)
+   * Checks RevenueCat entitlements
+   */
+  getUserTier(): SubscriptionTier {
+    if (!this.customerInfo) {
+      return 'free';
+    }
+
+    const hasProEntitlement =
+      this.customerInfo.entitlements.active[REVENUECAT_CONFIG.entitlementId] !== undefined;
+
+    return hasProEntitlement ? 'pro' : 'free';
+  }
+
+  /**
+   * Check if user has pro subscription
+   */
+  isPro(): boolean {
+    return this.getUserTier() === 'pro';
+  }
+
+  /**
+   * Get available subscription offerings
+   * Call this in Paywall screen
+   */
+  async getOfferings(): Promise<PurchasesOfferings | null> {
+    try {
+      const offerings = await Purchases.getOfferings();
+
+      if (offerings.current === null) {
+        console.warn('[SubscriptionManager] No current offering found');
+      }
+
+      return offerings;
+    } catch (error) {
+      console.error('[SubscriptionManager] Error fetching offerings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Purchase a subscription package
+   * @param packageToPurchase - Package from offerings
+   */
+  async purchasePro(packageToPurchase: PurchasesPackage): Promise<CustomerInfo> {
+    try {
+      const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
+
+      this.customerInfo = customerInfo;
+      await this.syncSubscriptionStatus();
+
+      console.log('[SubscriptionManager] Purchase successful');
+      return customerInfo;
+    } catch (error: any) {
+      // Handle user cancellation gracefully
+      if (error.userCancelled) {
+        console.log('[SubscriptionManager] Purchase cancelled by user');
+      } else {
+        console.error('[SubscriptionManager] Purchase error:', error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Restore previous purchases
+   * Required by App Store guidelines - must have a restore button
+   */
+  async restorePurchases(): Promise<CustomerInfo> {
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+
+      this.customerInfo = customerInfo;
+      await this.syncSubscriptionStatus();
+
+      console.log('[SubscriptionManager] Purchases restored');
+      return customerInfo;
+    } catch (error) {
+      console.error('[SubscriptionManager] Restore error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current customer info
+   * Refreshes from RevenueCat servers
+   */
+  async refreshCustomerInfo(): Promise<CustomerInfo> {
+    try {
+      this.customerInfo = await Purchases.getCustomerInfo();
+      await this.syncSubscriptionStatus();
+      return this.customerInfo;
+    } catch (error) {
+      console.error('[SubscriptionManager] Error refreshing customer info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Listen for subscription updates
+   * @param callback - Called when subscription status changes
+   */
+  onSubscriptionUpdate(callback: (tier: SubscriptionTier) => void): void {
+    Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+      this.customerInfo = customerInfo;
+      callback(this.getUserTier());
+    });
+  }
+
+  /**
+   * Update local tier in database
+   * Used when subscription status changes
+   */
+  async updateLocalTier(tier: SubscriptionTier): Promise<void> {
+    await updateSubscriptionTier(tier);
+  }
+}
+
+// Export singleton instance
+export const subscriptionManager = SubscriptionManager.getInstance();
+```
+
+---
+
+#### 6.5.4 Update App.tsx to Initialize RevenueCat
+
+**File:** `App.tsx`
+
+Add initialization:
+
+```typescript
+import { useEffect } from 'react';
+import { subscriptionManager } from './src/services/SubscriptionManager';
+import { initializeDatabase } from './src/database/init';
+
+export default function App() {
+  useEffect(() => {
+    async function initializeApp() {
+      try {
+        // Initialize database first
+        await initializeDatabase();
+
+        // Initialize RevenueCat
+        await subscriptionManager.initialize();
+
+        console.log('App initialized successfully');
+      } catch (error) {
+        console.error('App initialization error:', error);
+      }
+    }
+
+    initializeApp();
+  }, []);
+
+  return (
+    // Your app components
+  );
+}
+```
+
+---
+
+#### 6.5.5 Create useSubscription Hook
+
+**File:** `src/hooks/useSubscription.ts`
+
+```typescript
+import { useEffect, useState } from 'react';
+import { subscriptionManager } from '../services/SubscriptionManager';
+import { SubscriptionTier } from '../config/revenueCat';
+
+export interface UseSubscriptionResult {
+  isPro: boolean;
+  tier: SubscriptionTier;
+  loading: boolean;
+  refresh: () => Promise<void>;
+}
+
+/**
+ * React hook for accessing subscription status
+ * Automatically updates when subscription changes
+ */
+export function useSubscription(): UseSubscriptionResult {
+  const [tier, setTier] = useState<SubscriptionTier>('free');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial status
+    checkSubscription();
+
+    // Listen for updates
+    subscriptionManager.onSubscriptionUpdate((newTier) => {
+      setTier(newTier);
+    });
+  }, []);
+
+  const checkSubscription = async () => {
+    try {
+      await subscriptionManager.refreshCustomerInfo();
+      setTier(subscriptionManager.getUserTier());
+    } catch (error) {
+      console.error('[useSubscription] Error checking subscription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    isPro: tier === 'pro',
+    tier,
+    loading,
+    refresh: checkSubscription,
+  };
+}
+```
+
+---
+
+#### 6.5.6 Update Paywall Screen
+
+**File:** `src/screens/Paywall.tsx`
+
+Update to use RevenueCat offerings:
+
+```typescript
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { subscriptionManager } from '../services/SubscriptionManager';
+import { PurchasesPackage } from 'react-native-purchases';
+
+export default function PaywallScreen({ navigation }: any) {
+  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+
+  useEffect(() => {
+    loadOfferings();
+  }, []);
+
+  const loadOfferings = async () => {
+    try {
+      const offerings = await subscriptionManager.getOfferings();
+
+      if (offerings?.current?.availablePackages) {
+        setPackages(offerings.current.availablePackages);
+      } else {
+        Alert.alert('Error', 'No subscription packages available');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePurchase = async (pkg: PurchasesPackage) => {
+    setPurchasing(true);
+    try {
+      await subscriptionManager.purchasePro(pkg);
+
+      Alert.alert(
+        'Welcome to CleanSpace Pro!',
+        'You now have unlimited access to all premium features.',
+        [{ text: 'Get Started', onPress: () => navigation.goBack() }]
+      );
+    } catch (error: any) {
+      if (!error.userCancelled) {
+        Alert.alert('Purchase Failed', error.message);
+      }
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      const customerInfo = await subscriptionManager.restorePurchases();
+
+      if (subscriptionManager.isPro()) {
+        Alert.alert('Success', 'Your purchases have been restored!');
+        navigation.goBack();
+      } else {
+        Alert.alert('No Purchases Found', 'No active subscriptions were found for this account.');
+      }
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gray-900">
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView className="flex-1 bg-gray-900">
+      <View className="p-6">
+        {/* Header */}
+        <Text className="text-white text-3xl font-bold text-center mb-2">
+          Upgrade to Pro
+        </Text>
+        <Text className="text-gray-400 text-center mb-8">
+          Unlock unlimited storage management
+        </Text>
+
+        {/* Features List */}
+        <View className="bg-gray-800 rounded-lg p-6 mb-6">
+          <FeatureItem icon="✓" text="Unlimited scans per month" />
+          <FeatureItem icon="✓" text="Unlimited duplicate cleanup" />
+          <FeatureItem icon="✓" text="Photo & video compression" />
+          <FeatureItem icon="✓" text="Background auto-scanning" />
+          <FeatureItem icon="✓" text="Cloud sync across devices" />
+          <FeatureItem icon="✓" text="Priority support" />
+        </View>
+
+        {/* Subscription Packages */}
+        {packages.map((pkg) => (
+          <TouchableOpacity
+            key={pkg.identifier}
+            className="bg-blue-600 rounded-lg p-4 mb-4"
+            onPress={() => handlePurchase(pkg)}
+            disabled={purchasing}
+          >
+            <View className="flex-row justify-between items-center">
+              <View>
+                <Text className="text-white text-lg font-bold">
+                  {pkg.product.title}
+                </Text>
+                <Text className="text-blue-200 text-sm">
+                  {pkg.product.description}
+                </Text>
+              </View>
+              <Text className="text-white text-xl font-bold">
+                {pkg.product.priceString}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* Restore Button */}
+        <TouchableOpacity
+          className="py-4"
+          onPress={handleRestore}
+          disabled={purchasing}
+        >
+          <Text className="text-blue-400 text-center">
+            Restore Purchases
+          </Text>
+        </TouchableOpacity>
+
+        {/* Terms */}
+        <Text className="text-gray-500 text-xs text-center mt-4">
+          Auto-renewable subscription. Cancel anytime in App Store settings.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+function FeatureItem({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View className="flex-row items-center mb-3">
+      <Text className="text-green-400 text-xl mr-3">{icon}</Text>
+      <Text className="text-white text-base">{text}</Text>
+    </View>
+  );
+}
+```
+
+---
+
+#### 6.5.7 Update Dashboard to Show Subscription Status
+
+**File:** `src/screens/Dashboard.tsx`
+
+Add subscription status display:
+
+```typescript
+import { useSubscription } from '../hooks/useSubscription';
+
+export default function Dashboard({ navigation }: any) {
+  const { isPro, tier, loading } = useSubscription();
+
+  // ... existing code ...
+
+  return (
+    <ScrollView>
+      {/* Subscription Status Banner */}
+      {!loading && (
+        <View className={`p-4 ${isPro ? 'bg-blue-900' : 'bg-gray-800'}`}>
+          <Text className="text-white text-center">
+            {isPro
+              ? '⭐ CleanSpace Pro - Unlimited Access'
+              : '📦 Free Tier - Upgrade for unlimited access'
+            }
+          </Text>
+          {!isPro && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Paywall')}
+              className="bg-blue-600 rounded-lg py-2 px-4 mt-2"
+            >
+              <Text className="text-white text-center font-bold">
+                Upgrade to Pro
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Rest of dashboard */}
+    </ScrollView>
+  );
+}
+```
+
+---
+
+#### 6.5.8 Testing Strategy
+
+**A. Sandbox Testing Setup**
+
+**Step 1: Create Sandbox Test Account**
+- [ ] Go to App Store Connect → **Users and Access** → **Sandbox Testers**
+- [ ] Click **+** to create new sandbox tester
+- [ ] Use a UNIQUE email (e.g., `cleanspace.test1@gmail.com`)
+- [ ] Save the credentials securely
+
+**Step 2: Configure Test Device**
+- [ ] On your iPhone: **Settings** → **App Store** → Sign out of your real Apple ID
+- [ ] DO NOT sign in with sandbox account yet (wait for purchase prompt)
+
+**B. Build Development Version**
+
+```bash
+# Create development build with RevenueCat
+eas build --profile development --platform ios
+
+# Or local build
+npx expo prebuild --platform ios
+cd ios && pod install && cd ..
+npx expo run:ios --device
+```
+
+**C. Test Scenarios Checklist**
+
+- [ ] **Test 1: App Launch**
+  - App starts without crashes
+  - RevenueCat initializes successfully
+  - Default tier is 'free'
+  - Dashboard shows "Free Tier" banner
+
+- [ ] **Test 2: View Offerings**
+  - Navigate to Paywall screen
+  - Monthly and Annual packages load
+  - Prices display correctly
+  - Product descriptions show
+
+- [ ] **Test 3: Purchase Monthly**
+  - Tap Monthly package
+  - iOS purchase dialog appears
+  - Sign in with sandbox tester account when prompted
+  - Complete purchase (sandbox purchases are instant)
+  - Verify success alert shows
+  - Dashboard updates to "CleanSpace Pro"
+  - SQLite `usage_limits` table shows `subscription_tier = 'pro'`
+
+- [ ] **Test 4: Verify Pro Features Unlock**
+  - Scan limit check: `canPerformScan()` returns `{allowed: true, unlimited: true}`
+  - Background scanning toggle is enabled
+  - Compression feature is accessible
+  - No usage limit warnings show
+
+- [ ] **Test 5: Restore Purchases**
+  - Delete app and reinstall
+  - Launch app (should show Free tier initially)
+  - Go to Paywall → Tap "Restore Purchases"
+  - Verify Pro access restored
+  - Verify SQLite synced correctly
+
+- [ ] **Test 6: Subscription Expiration**
+  - In Sandbox: Subscriptions expire quickly (monthly = 5 minutes)
+  - Wait for expiration
+  - Verify app reverts to Free tier
+  - Verify usage limits re-appear
+  - Verify Pro features are locked
+
+- [ ] **Test 7: Cancel Subscription**
+  - In sandbox account: Settings → Apple ID → Subscriptions
+  - Cancel CleanSpace Pro
+  - Verify subscription remains active until period end
+  - Verify access continues until expiration
+  - After expiration: verify downgrade to Free
+
+- [ ] **Test 8: Offline Behavior**
+  - Enable Airplane Mode
+  - Launch app
+  - Verify RevenueCat uses cached subscription status
+  - Verify Pro features work offline (if previously Pro)
+
+**D. Common Sandbox Testing Issues**
+
+1. **"Cannot connect to App Store"**
+   - Solution: Sign out of real Apple ID in device settings
+   - Only sign in with sandbox account when purchase prompt appears
+
+2. **"Purchase failed - Invalid Product ID"**
+   - Solution: Verify Product IDs in App Store Connect match RevenueCat configuration
+   - Ensure products are in "Ready to Submit" or "Approved" status
+
+3. **"No products available"**
+   - Solution: Wait 24-48 hours after creating products in App Store Connect
+   - Check RevenueCat dashboard for product sync status
+
+4. **Subscription doesn't unlock features**
+   - Solution: Check RevenueCat entitlement is correctly attached to product
+   - Verify `ENTITLEMENT_ID` in code matches RevenueCat dashboard
+
+---
+
+#### 6.5.9 Production Readiness Checklist
+
+**Before App Store Submission:**
+
+- [ ] **RevenueCat Configuration**
+  - [ ] Production API keys configured (not test keys)
+  - [ ] App Store Connect integration verified
+  - [ ] Entitlements properly linked to products
+  - [ ] Offerings configured with correct packages
+
+- [ ] **Code Review**
+  - [ ] Remove `LOG_LEVEL.DEBUG` from SubscriptionManager
+  - [ ] Remove any test/development code
+  - [ ] Error handling is production-ready
+  - [ ] User-facing error messages are friendly
+
+- [ ] **Privacy & Legal**
+  - [ ] Privacy Policy URL added to app
+  - [ ] Terms of Service URL added to app
+  - [ ] Subscription terms displayed in Paywall
+  - [ ] "Restore Purchases" button is visible
+
+- [ ] **App Store Connect**
+  - [ ] Subscription products approved
+  - [ ] Pricing configured for all regions
+  - [ ] Subscription marketing content added
+  - [ ] Free trial configuration (if applicable)
+
+- [ ] **Database Migration**
+  - [ ] Ensure existing users migrate to RevenueCat smoothly
+  - [ ] Test upgrade flow for users with existing free accounts
+
+**Production Build:**
+
+```bash
+# Create production build
+eas build --profile production --platform ios
+
+# Or submit directly to App Store
+eas submit --platform ios
+```
+
+---
+
+#### 6.5.10 Post-Launch Monitoring
+
+**Use RevenueCat Dashboard to track:**
+- [ ] Active subscribers count
+- [ ] Monthly Recurring Revenue (MRR)
+- [ ] Churn rate
+- [ ] Trial conversion rate (if applicable)
+- [ ] Platform revenue breakdown
+
+**Set up webhooks (optional):**
+- [ ] Configure RevenueCat webhooks for backend notifications
+- [ ] Track subscription lifecycle events
+- [ ] Sync subscription data to analytics platform
+
+---
+
+**Checkpoint:** ✅ PHASE 6.5 COMPLETED when:
+- RevenueCat fully configured and tested in sandbox
+- All test scenarios pass
+- Production build submitted to App Store with working subscriptions
+- UsageManager correctly enforces Free vs Pro tiers
+- Paywall screen displays offerings and handles purchases
+- Subscription status syncs between RevenueCat and SQLite
+
+**Key Integration Points:**
+- ✅ RevenueCat → SubscriptionManager → SQLite `usage_limits` table
+- ✅ UsageManager reads from `usage_limits` for tier enforcement
+- ✅ Paywall screen uses SubscriptionManager for purchases
+- ✅ Dashboard/Settings show real-time subscription status
+- ✅ All Pro features gated behind `isPro()` checks
+
+---
+
 ### Phase 7: Polish & Optimization
 
 **Goal:** Refine performance, UX, and edge cases.

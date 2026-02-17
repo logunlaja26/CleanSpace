@@ -27,6 +27,7 @@ import Purchases, {
 } from 'react-native-purchases';
 import { UserTier, updateSubscriptionTier } from '../database/queries/usage';
 import { Platform } from 'react-native';
+import { REVENUECAT_CONFIG } from '../config/revenueCat';
 
 /**
  * Subscription offering
@@ -83,8 +84,8 @@ export class SubscriptionManager {
   private currentTier: UserTier = UserTier.FREE;
 
   // RevenueCat configuration
-  private readonly REVENUECAT_API_KEY_IOS = 'your_revenuecat_ios_key'; // TODO: Replace with actual key
-  private readonly REVENUECAT_API_KEY_ANDROID = 'your_revenuecat_android_key'; // TODO: Replace with actual key
+  private readonly REVENUECAT_API_KEY_IOS = REVENUECAT_CONFIG.apiKey.ios; // TODO: Replace with actual key
+  private readonly REVENUECAT_API_KEY_ANDROID = REVENUECAT_CONFIG.apiKey.android; // TODO: Replace with actual key
   private readonly PRO_ENTITLEMENT_ID = 'pro'; // Your entitlement identifier in RevenueCat
 
   /**
