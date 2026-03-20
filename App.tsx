@@ -5,10 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 import './global.css';
 import AppNavigator from './src/navigation/AppNavigator';
 import { setupDatabase } from './src/database/setup';
+import { subscriptionManager } from './src/services/SubscriptionManager';
 
 export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
+  const [initStep, setInitStep] = useState<string>('Starting...');
 
   useEffect(() => {
     initializeApp();
@@ -19,11 +21,20 @@ export default function App() {
       console.log('[App] Initializing CleanSpace...');
 
       // Initialize database
+      setInitStep('Setting up database...');
       const dbResult = await setupDatabase();
 
       if (!dbResult.success) {
         throw new Error(dbResult.message);
       }
+
+      console.log('[App] ✅ Database initialized');
+
+      // Initialize RevenueCat
+      setInitStep('Connecting to RevenueCat...');
+      await subscriptionManager.initialize();
+
+      console.log('[App] ✅ RevenueCat initialized');
 
       console.log('[App] ✅ CleanSpace initialized successfully');
       setIsInitializing(false);
@@ -40,7 +51,7 @@ export default function App() {
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator size="large" color="#3b82f6" />
         <Text className="mt-4 text-gray-600 text-lg">Initializing CleanSpace...</Text>
-        <Text className="mt-2 text-gray-400 text-sm">Setting up database</Text>
+        <Text className="mt-2 text-gray-400 text-sm">{initStep}</Text>
       </View>
     );
   }

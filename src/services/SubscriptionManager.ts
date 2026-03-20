@@ -123,6 +123,7 @@ export class SubscriptionManager {
 
       // Get initial customer info
       const customerInfo = await Purchases.getCustomerInfo();
+      console.log("[SubscriptionManager] customerInfo",JSON.stringify(customerInfo,null,2))
       await this.handleCustomerInfoUpdate(customerInfo);
 
       this.isInitialized = true;
@@ -190,13 +191,30 @@ export class SubscriptionManager {
 
     try {
       const offerings = await Purchases.getOfferings();
+      console.log("[SubscriptionManager] offerings",JSON.stringify(offerings,null,2))
+      console.log("[SubscriptionManager] Available offering IDs:", Object.keys(offerings.all));
+      console.log("[SubscriptionManager] Current offering:", offerings.current?.identifier);
+      console.log("[SubscriptionManager] Looking for offering:", REVENUECAT_CONFIG.defaultOfferingId);
 
-      if (!offerings.current) {
-        console.warn('[SubscriptionManager] No current offering available');
+      // Try to get the specific offering from config first
+      let currentOffering = offerings.all[REVENUECAT_CONFIG.defaultOfferingId];
+
+      // Fall back to current offering if specific one not found
+      if (!currentOffering) {
+        console.warn(`[SubscriptionManager] Offering '${REVENUECAT_CONFIG.defaultOfferingId}' not found, using current offering`);
+        currentOffering = offerings.current as PurchasesOffering;
+      }
+
+      if (!currentOffering) {
+        console.warn('[SubscriptionManager] No offering available');
         return null;
       }
 
-      const currentOffering = offerings.current;
+      console.log("[SubscriptionManager] Using offering:", currentOffering.identifier);
+      console.log("[SubscriptionManager] Available packages in offering:", currentOffering.availablePackages.length);
+      currentOffering.availablePackages.forEach((pkg, idx) => {
+        console.log(`[SubscriptionManager] Package ${idx}:`, pkg.identifier, '-', pkg.product.identifier);
+      });
 
       return {
         identifier: currentOffering.identifier,
@@ -253,7 +271,15 @@ export class SubscriptionManager {
       // Get offerings
       const offerings = await Purchases.getOfferings();
 
-      if (!offerings.current) {
+      // Try to get the specific offering from config first
+      let currentOffering = offerings.all[REVENUECAT_CONFIG.defaultOfferingId];
+
+      // Fall back to current offering if specific one not found
+      if (!currentOffering) {
+        currentOffering = offerings.current as PurchasesOffering;
+      }
+
+      if (!currentOffering) {
         return {
           success: false,
           error: 'No subscription offerings available',
@@ -261,7 +287,7 @@ export class SubscriptionManager {
       }
 
       // Find the package
-      const pkg = offerings.current.availablePackages.find(
+      const pkg = currentOffering.availablePackages.find(
         p => p.identifier === packageIdentifier
       );
 

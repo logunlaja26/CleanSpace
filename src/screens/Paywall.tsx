@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState } from '../components';
 
 // Services
-import { SubscriptionManager } from '../services/SubscriptionManager';
+import { subscriptionManager } from '../services/SubscriptionManager';
 import { UserTier } from '../database/queries/usage';
 
 type PaywallProps = {
@@ -38,29 +38,50 @@ export default function Paywall({ navigation }: PaywallProps) {
       setIsLoading(true);
       setError(null);
 
-      const subscriptionManager = new SubscriptionManager();
+      // Initialize subscription manager if not already initialized
       await subscriptionManager.initialize();
 
       // Get offerings from RevenueCat
       const offerings = await subscriptionManager.getOfferings();
+      console.log("[Paywall] offerings",JSON.stringify(offerings,null,2))
+      console.log("[Paywall] offerings exists?", offerings !== null && offerings !== undefined);
+      console.log("[Paywall] offerings.packages exists?", offerings?.packages !== undefined);
+      console.log("[Paywall] offerings.packages length:", offerings?.packages?.length || 0);
+
+      if (!offerings) {
+        throw new Error('No offerings available from RevenueCat');
+      }
+
+      if (!offerings.packages || offerings.packages.length === 0) {
+        throw new Error('No packages found in the offering. Please check your RevenueCat dashboard.');
+      }
 
       // Transform to UI format
-      const plans: PricingPlan[] = offerings?.packages.map(pkg => ({
-        id: pkg.identifier,
-        name: pkg.product.title || pkg.identifier,
-        price: pkg.product.priceString || '$0.00',
-        period: pkg.packageType || 'one-time',
-        popular: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual'),
-        savings: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual') ? 'Save 50%' :
-                 pkg.identifier.toLowerCase().includes('lifetime') ? 'Best Value' : undefined,
-      })) || [];
+      const plans: PricingPlan[] = offerings.packages.map(pkg => {
+        console.log('[Paywall] Package identifier:', pkg.identifier);
+        console.log('[Paywall] Package type:', pkg.packageType);
+        return {
+          id: pkg.identifier,
+          name: pkg.product.title || pkg.identifier,
+          price: pkg.product.priceString || '$0.00',
+          period: pkg.packageType || 'one-time',
+          popular: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual'),
+          savings: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual') ? 'Save 50%' :
+                   pkg.identifier.toLowerCase().includes('lifetime') ? 'Best Value' : undefined,
+        };
+      }) || [];
 
+      console.log('[Paywall] Loaded plans:', plans.map(p => ({ id: p.id, name: p.name })));
       setPricingPlans(plans);
 
       // Set default selected plan if available
       if (plans.length > 0) {
         const yearlyPlan = plans.find(p => p.id === 'yearly');
-        setSelectedPlan(yearlyPlan ? yearlyPlan.id : plans[0].id);
+        const defaultPlanId = yearlyPlan ? yearlyPlan.id : plans[0].id;
+        console.log('[Paywall] Setting default selected plan:', defaultPlanId);
+        setSelectedPlan(defaultPlanId);
+      } else {
+        console.warn('[Paywall] No plans loaded from offerings!');
       }
     } catch (err) {
       console.error('Error loading pricing plans:', err);
@@ -85,13 +106,21 @@ export default function Paywall({ navigation }: PaywallProps) {
     try {
       setIsPurchasing(true);
 
-      const subscriptionManager = new SubscriptionManager();
+      console.log('[Paywall] Purchase initiated');
+      console.log('[Paywall] Selected plan ID:', selectedPlan);
+      console.log('[Paywall] Available plans:', pricingPlans.map(p => p.id));
+
       const selectedOffering = pricingPlans.find(p => p.id === selectedPlan);
 
       if (!selectedOffering) {
+        console.error('[Paywall] Could not find selected plan in pricingPlans array');
+        console.error('[Paywall] selectedPlan:', selectedPlan);
+        console.error('[Paywall] pricingPlans:', pricingPlans);
         Alert.alert('Error', 'Please select a plan');
         return;
       }
+
+      console.log('[Paywall] Found selected offering:', selectedOffering);
 
       // Attempt purchase
       const result = await subscriptionManager.purchasePro(selectedOffering.id);
@@ -133,7 +162,6 @@ export default function Paywall({ navigation }: PaywallProps) {
               text: 'Upgrade Locally',
               onPress: async () => {
                 try {
-                  const subscriptionManager = new SubscriptionManager();
                   await subscriptionManager.updateLocalTier(UserTier.PRO);
                   Alert.alert('Success', 'Upgraded to Pro (local testing mode)');
                   navigation.goBack();
@@ -163,7 +191,6 @@ export default function Paywall({ navigation }: PaywallProps) {
     try {
       setIsRestoring(true);
 
-      const subscriptionManager = new SubscriptionManager();
       const result = await subscriptionManager.restorePurchases();
 
       if (result.success && result.customerInfo) {
