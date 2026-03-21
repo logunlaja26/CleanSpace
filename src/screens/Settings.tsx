@@ -11,6 +11,8 @@ import { UsageManager } from '../services/UsageManager';
 import { SyncService } from '../services/SyncService';
 import { runFullDiagnostics } from '../utils/diagnostics';
 import { backfillFileSizes } from '../services/BackfillFileSizes';
+import { subscriptionManager } from '../services/SubscriptionManager';
+import { UserTier } from '../database/queries/usage';
 
 type SettingsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Settings'>;
@@ -204,6 +206,37 @@ export default function Settings({ navigation }: SettingsProps) {
   };
 
   /**
+   * Open iOS subscription management
+   * Required by Apple - apps cannot cancel subscriptions programmatically
+   */
+  const handleManageSubscription = async () => {
+    try {
+      // Deep link to iOS subscription management
+      const url = 'https://apps.apple.com/account/subscriptions';
+
+      const supported = await Linking.canOpenURL(url);
+
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        // Fallback for older iOS versions or if link doesn't open
+        Alert.alert(
+          'Manage Subscription',
+          'To manage your subscription:\n\n1. Open Settings app\n2. Tap your Apple ID at the top\n3. Tap Subscriptions\n4. Select CleanSpace',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('[Settings] Error opening subscription management:', error);
+      Alert.alert(
+        'Unable to Open Settings',
+        'Please go to:\nSettings → Apple ID → Subscriptions → CleanSpace',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  /**
    * Backfill file sizes for existing photos/videos
    */
   const handleBackfillFileSizes = async () => {
@@ -282,6 +315,17 @@ export default function Settings({ navigation }: SettingsProps) {
   // Load settings on mount
   useEffect(() => {
     loadSettings();
+
+    // Listen for subscription status changes from RevenueCat
+    subscriptionManager.onSubscriptionUpdate((newTier: UserTier) => {
+      console.log('[Settings] Subscription updated:', newTier);
+
+      // Update tier immediately
+      setTier(newTier === UserTier.PRO ? 'pro' : 'free');
+
+      // Reload all settings to refresh usage limits
+      loadSettings();
+    });
   }, []);
 
   // Reload when screen comes into focus
@@ -369,7 +413,10 @@ export default function Settings({ navigation }: SettingsProps) {
           )}
 
           {tier === 'pro' && (
-            <TouchableOpacity className="bg-gray-200 py-3 rounded-lg">
+            <TouchableOpacity
+              className="bg-gray-200 py-3 rounded-lg"
+              onPress={handleManageSubscription}
+            >
               <Text className="text-gray-700 text-center font-semibold">Manage Subscription</Text>
             </TouchableOpacity>
           )}
