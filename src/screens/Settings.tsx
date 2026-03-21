@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -583,7 +583,7 @@ export default function Settings({ navigation }: SettingsProps) {
       </View>
 
       {/* Storage Management */}
-      <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
+      {/* <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
         <View className="p-4 border-b border-gray-200">
           <Text className="font-bold text-lg text-gray-800">Storage Management</Text>
         </View>
@@ -632,7 +632,7 @@ export default function Settings({ navigation }: SettingsProps) {
             This will delete all scan history and duplicate groups
           </Text>
         </View>
-      </View>
+      </View> */}
 
       {/* About */}
       <View className="bg-white mt-4 mx-4 mb-8 rounded-xl shadow-sm overflow-hidden">
@@ -645,11 +645,17 @@ export default function Settings({ navigation }: SettingsProps) {
           <Text className="text-gray-500">1.0.0</Text>
         </View>
 
-        <TouchableOpacity className="p-4 border-b border-gray-200">
+        <TouchableOpacity
+          className="p-4 border-b border-gray-200"
+          onPress={() => Linking.openURL('https://verdant-nougat-01b352.netlify.app/privacy')}
+        >
           <Text className="text-blue-600">Privacy Policy</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity className="p-4">
+        <TouchableOpacity
+          className="p-4 border-b border-gray-200"
+          onPress={() => Linking.openURL('https://verdant-nougat-01b352.netlify.app/terms')}
+        >
           <Text className="text-blue-600">Terms of Service</Text>
         </TouchableOpacity>
       </View>
