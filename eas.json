@@ -23,8 +23,14 @@
       }
     },
     "production": {
+      "distribution": "store",
+      "autoIncrement": true,
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "production"
       }
     },
     "development-simulator": {
@@ -37,6 +43,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "logunlaja26@gmail.com",
+        "ascAppId": "6759260328",
+        "appleTeamId": "P86595DCA6"
+      }
+    }
   }
 }

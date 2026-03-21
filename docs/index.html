@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CleanSpace Support - Smart Photo & Video Cleaner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        h2 {
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .contact-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .contact-box strong {
+            color: #667eea;
+        }
+
+        .faq-item {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+
+        .faq-item:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+
+        .faq-item h3 {
+            margin-top: 0;
+        }
+
+        .links {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .link-button {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .link-button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(118, 75, 162, 0.4);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 CleanSpace Support</h1>
+            <p class="tagline">Smart Photo & Video Cleaner for iOS</p>
+        </header>
+
+        <section>
+            <h2>Contact Us</h2>
+            <div class="contact-box">
+                <p><strong>Email Support:</strong> <a href="mailto:lyomanndesign@gmail.com">lyomanndesign@gmail.com</a></p>
+                <p><strong>Response Time:</strong> We typically respond within 24-48 hours</p>
+                <p><strong>Developer:</strong> Lyomann Designs</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <h3>🔍 How do I scan my photo library?</h3>
+                <p>Tap the "Start Scan" button on the Dashboard. CleanSpace will analyze your photos and videos to find duplicates, large files, and screenshots. The initial scan may take a few minutes depending on your library size.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>🗑️ How do I delete duplicate photos?</h3>
+                <p>Navigate to the "Duplicates" screen from the Dashboard. Review the duplicate groups, select the photos you want to delete, and tap the delete button. We recommend keeping the photo marked as "Best Quality".</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>💾 How much storage can I free up?</h3>
+                <p>The amount varies based on your photo library. Most users free up 1-5 GB by removing duplicates, screenshots, and compressing large files. Pro users can achieve even greater savings with video compression.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>🔒 Is my privacy protected?</h3>
+                <p>Yes! All photo analysis happens locally on your device. Your photos never leave your iPhone unless you explicitly enable cloud sync. See our <a href="privacy.html">Privacy Policy</a> for details.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>⭐ What's the difference between Free and Pro?</h3>
+                <p><strong>Free Tier:</strong></p>
+                <ul class="feature-list">
+                    <li>3 scans per month</li>
+                    <li>Delete up to 50 duplicate photos per month</li>
+                    <li>Basic duplicate detection</li>
+                </ul>
+                <p><strong>Pro Tier:</strong></p>
+                <ul class="feature-list">
+                    <li>Unlimited scans</li>
+                    <li>Unlimited duplicate cleanup</li>
+                    <li>Photo & video compression</li>
+                    <li>Background auto-scanning</li>
+                    <li>Cloud sync across devices</li>
+                    <li>Priority support</li>
+                </ul>
+            </div>
+
+            <div class="faq-item">
+                <h3>💳 How do I cancel my subscription?</h3>
+                <p>Subscriptions are managed through Apple. To cancel:</p>
+                <ol>
+                    <li>Open Settings on your iPhone</li>
+                    <li>Tap your name at the top</li>
+                    <li>Tap "Subscriptions"</li>
+                    <li>Select "CleanSpace Pro"</li>
+                    <li>Tap "Cancel Subscription"</li>
+                </ol>
+            </div>
+
+            <div class="faq-item">
+                <h3>🔄 How do I restore my Pro subscription?</h3>
+                <p>Open CleanSpace, go to Settings → Subscription, and tap "Restore Purchases". Your Pro access will be restored automatically.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>📱 Can I use CleanSpace offline?</h3>
+                <p>Yes! CleanSpace works completely offline. Cloud sync is optional and only used for backing up preferences and duplicate decisions.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>🐛 I found a bug. How do I report it?</h3>
+                <p>Email us at <a href="mailto:lyomanndesign@gmail.com">lyomanndesign@gmail.com</a> with:</p>
+                <ul>
+                    <li>Description of the issue</li>
+                    <li>iOS version</li>
+                    <li>iPhone model</li>
+                    <li>Steps to reproduce (if applicable)</li>
+                </ul>
+            </div>
+
+            <div class="faq-item">
+                <h3>💡 Can I request a feature?</h3>
+                <p>Absolutely! We love hearing from users. Email your feature requests to <a href="mailto:lyomanndesign@gmail.com">lyomanndesign@gmail.com</a>.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Important Links</h2>
+            <div class="links">
+                <a href="privacy.html" class="link-button">Privacy Policy</a>
+                <a href="terms.html" class="link-button">Terms of Service</a>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 Lyomann Designs. All rights reserved.</p>
+            <p>CleanSpace - Reclaim your storage. Keep only what matters.</p>
+        </footer>
+    </div>
+</body>
+</html>

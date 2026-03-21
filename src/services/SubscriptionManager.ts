@@ -84,9 +84,9 @@ export class SubscriptionManager {
   private currentTier: UserTier = UserTier.FREE;
 
   // RevenueCat configuration
-  private readonly REVENUECAT_API_KEY_IOS = REVENUECAT_CONFIG.apiKey.ios; // TODO: Replace with actual key
-  private readonly REVENUECAT_API_KEY_ANDROID = REVENUECAT_CONFIG.apiKey.android; // TODO: Replace with actual key
-  private readonly PRO_ENTITLEMENT_ID = 'pro'; // Your entitlement identifier in RevenueCat
+  private readonly REVENUECAT_API_KEY_IOS = REVENUECAT_CONFIG.apiKey.ios;
+  private readonly REVENUECAT_API_KEY_ANDROID = REVENUECAT_CONFIG.apiKey.android;
+  private readonly PRO_ENTITLEMENT_ID = REVENUECAT_CONFIG.entitlementId;
 
   /**
    * Initialize RevenueCat SDK

@@ -4,7 +4,7 @@
     "slug": "cleanspace",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/cleanspace-icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -15,11 +15,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lyomann.cleanspace",
+      "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "CleanSpace needs access to your photo library to help you organize and clean up duplicate photos, large files, and screenshots to free up storage space.",
         "NSPhotoLibraryAddUsageDescription": "CleanSpace needs permission to save optimized photos back to your library after compression.",
         "NSCameraUsageDescription": "CleanSpace may use your camera to capture new photos.",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
