@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LoadingSpinner, ErrorState } from '../components';
 
@@ -357,8 +358,10 @@ export default function Settings({ navigation }: SettingsProps) {
   // Show loading state
   if (isLoading) {
     return (
-      <View className="flex-1 bg-gray-50 justify-center items-center">
-        <LoadingSpinner size="large" label="Loading settings..." />
+      <View className="flex-1 bg-gray-50 justify-center items-center p-6">
+        <View className="bg-white p-8 rounded-2xl shadow-lg">
+          <LoadingSpinner size="large" label="Loading settings..." />
+        </View>
       </View>
     );
   }
@@ -366,12 +369,14 @@ export default function Settings({ navigation }: SettingsProps) {
   // Show error state
   if (error) {
     return (
-      <View className="flex-1 bg-gray-50">
-        <ErrorState
-          title="Failed to Load Settings"
-          message={error}
-          onRetry={loadSettings}
-        />
+      <View className="flex-1 bg-gray-50 p-6">
+        <View className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <ErrorState
+            title="Failed to Load Settings"
+            message={error}
+            onRetry={loadSettings}
+          />
+        </View>
       </View>
     );
   }
@@ -379,65 +384,102 @@ export default function Settings({ navigation }: SettingsProps) {
   return (
     <ScrollView className="flex-1 bg-gray-50">
       {/* Account & Subscription */}
-      <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
-        <View className="p-4 border-b border-gray-200">
-          <Text className="font-bold text-lg text-gray-800">Account & Subscription</Text>
+      <View className="bg-white mt-6 mx-4 rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <View className="p-5 border-b border-gray-100 bg-blue-50">
+          <View className="flex-row items-center">
+            <View className="bg-blue-100 p-2.5 rounded-xl mr-3">
+              <Ionicons name="person-circle-outline" size={24} color="#2563eb" />
+            </View>
+            <Text className="font-bold text-xl text-gray-800">Account & Subscription</Text>
+          </View>
         </View>
 
         {/* Current Tier */}
-        <View className="p-4 border-b border-gray-200">
-          <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-gray-700">Current Plan</Text>
-            <View className={`px-3 py-1 rounded-full ${tier === 'pro' ? 'bg-blue-600' : 'bg-gray-300'}`}>
-              <Text className={`font-bold ${tier === 'pro' ? 'text-white' : 'text-gray-700'}`}>
-                {tier === 'pro' ? 'PRO' : 'FREE'}
-              </Text>
+        <View className="p-5">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-base text-gray-600 font-medium">Current Plan</Text>
+            <View className={`px-4 py-2 rounded-full shadow-sm ${tier === 'pro' ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-gray-200'}`}>
+              <View className="flex-row items-center">
+                {tier === 'pro' && <Ionicons name="star" size={14} color="white" className="mr-1" />}
+                <Text className={`font-bold text-sm ${tier === 'pro' ? 'text-white' : 'text-gray-600'}`}>
+                  {tier === 'pro' ? 'PRO' : 'FREE'}
+                </Text>
+              </View>
             </View>
           </View>
 
           {tier === 'free' && (
             <>
-              <Text className="text-sm text-gray-500 mb-3">
-                {scansRemaining} scans remaining this month
-              </Text>
-              <Text className="text-sm text-gray-500 mb-3">
-                {cleanupRemaining} photo cleanups remaining
-              </Text>
+              <View className="bg-blue-50 p-4 rounded-xl mb-4 border border-blue-100">
+                <View className="flex-row items-center mb-2">
+                  <MaterialIcons name="analytics" size={18} color="#3b82f6" />
+                  <Text className="text-sm text-gray-700 ml-2 font-medium">
+                    {scansRemaining} scans remaining this month
+                  </Text>
+                </View>
+                <View className="flex-row items-center">
+                  <MaterialCommunityIcons name="delete-sweep" size={18} color="#3b82f6" />
+                  <Text className="text-sm text-gray-700 ml-2 font-medium">
+                    {cleanupRemaining} photo cleanups remaining
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Paywall')}
-                className="bg-blue-600 py-3 rounded-lg"
+                className="bg-blue-600 py-4 rounded-xl shadow-md"
+                style={{
+                  shadowColor: '#2563eb',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
               >
-                <Text className="text-white text-center font-bold">Upgrade to Pro</Text>
+                <View className="flex-row items-center justify-center">
+                  <Ionicons name="rocket" size={20} color="white" />
+                  <Text className="text-white text-center font-bold text-base ml-2">Upgrade to Pro</Text>
+                </View>
               </TouchableOpacity>
             </>
           )}
 
           {tier === 'pro' && (
             <TouchableOpacity
-              className="bg-gray-200 py-3 rounded-lg"
+              className="bg-gray-100 py-4 rounded-xl border border-gray-200"
               onPress={handleManageSubscription}
             >
-              <Text className="text-gray-700 text-center font-semibold">Manage Subscription</Text>
+              <View className="flex-row items-center justify-center">
+                <MaterialIcons name="settings" size={20} color="#4b5563" />
+                <Text className="text-gray-700 text-center font-semibold text-base ml-2">Manage Subscription</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {/* Scanning Preferences */}
-      <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
-        <View className="p-4 border-b border-gray-200">
-          <Text className="font-bold text-lg text-gray-800">Scanning Preferences</Text>
+      <View className="bg-white mt-6 mx-4 rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <View className="p-5 border-b border-gray-100 bg-purple-50">
+          <View className="flex-row items-center">
+            <View className="bg-purple-100 p-2.5 rounded-xl mr-3">
+              <MaterialCommunityIcons name="radar" size={24} color="#9333ea" />
+            </View>
+            <Text className="font-bold text-xl text-gray-800">Scanning Preferences</Text>
+          </View>
         </View>
 
         {/* Auto-scan */}
-        <View className="p-4 border-b border-gray-200 flex-row justify-between items-center">
+        <View className="p-5 border-b border-gray-100 flex-row justify-between items-center">
           <View className="flex-1 pr-4">
-            <Text className="text-gray-800 font-semibold mb-1">Auto-Scan</Text>
-            <Text className="text-sm text-gray-500">
+            <View className="flex-row items-center mb-1">
+              <MaterialIcons name="autorenew" size={20} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Auto-Scan</Text>
+            </View>
+            <Text className="text-sm text-gray-500 ml-7">
               Automatically scan for duplicates periodically
             </Text>
             {tier === 'free' && (
-              <View className="bg-blue-100 px-2 py-1 rounded mt-1 self-start">
+              <View className="bg-blue-100 px-3 py-1.5 rounded-full mt-2 self-start border border-blue-200">
                 <Text className="text-blue-700 text-xs font-bold">PRO ONLY</Text>
               </View>
             )}
@@ -446,22 +488,27 @@ export default function Settings({ navigation }: SettingsProps) {
             value={autoScanEnabled}
             onValueChange={handleAutoScanToggle}
             disabled={tier === 'free'}
+            trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
+            thumbColor={autoScanEnabled ? '#ffffff' : '#f3f4f6'}
           />
         </View>
 
         {/* Scan Frequency */}
         {autoScanEnabled && tier === 'pro' && (
-          <View className="p-4 border-b border-gray-200">
-            <Text className="text-gray-800 font-semibold mb-3">Scan Frequency</Text>
-            <View className="flex-row space-x-2">
+          <View className="p-5 border-b border-gray-100">
+            <View className="flex-row items-center mb-3">
+              <MaterialIcons name="schedule" size={18} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Scan Frequency</Text>
+            </View>
+            <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={async () => {
                   setScanFrequency('daily');
                   await savePreference('scan_frequency', 'daily');
                 }}
-                className={`flex-1 py-2 rounded-lg ${scanFrequency === 'daily' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                className={`flex-1 py-3 rounded-xl ${scanFrequency === 'daily' ? 'bg-blue-600 shadow-md' : 'bg-gray-100 border border-gray-200'}`}
               >
-                <Text className={`text-center font-semibold ${scanFrequency === 'daily' ? 'text-white' : 'text-gray-700'}`}>
+                <Text className={`text-center font-semibold text-sm ${scanFrequency === 'daily' ? 'text-white' : 'text-gray-600'}`}>
                   Daily
                 </Text>
               </TouchableOpacity>
@@ -470,9 +517,9 @@ export default function Settings({ navigation }: SettingsProps) {
                   setScanFrequency('weekly');
                   await savePreference('scan_frequency', 'weekly');
                 }}
-                className={`flex-1 py-2 rounded-lg ${scanFrequency === 'weekly' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                className={`flex-1 py-3 rounded-xl ${scanFrequency === 'weekly' ? 'bg-blue-600 shadow-md' : 'bg-gray-100 border border-gray-200'}`}
               >
-                <Text className={`text-center font-semibold ${scanFrequency === 'weekly' ? 'text-white' : 'text-gray-700'}`}>
+                <Text className={`text-center font-semibold text-sm ${scanFrequency === 'weekly' ? 'text-white' : 'text-gray-600'}`}>
                   Weekly
                 </Text>
               </TouchableOpacity>
@@ -481,9 +528,9 @@ export default function Settings({ navigation }: SettingsProps) {
                   setScanFrequency('monthly');
                   await savePreference('scan_frequency', 'monthly');
                 }}
-                className={`flex-1 py-2 rounded-lg ${scanFrequency === 'monthly' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                className={`flex-1 py-3 rounded-xl ${scanFrequency === 'monthly' ? 'bg-blue-600 shadow-md' : 'bg-gray-100 border border-gray-200'}`}
               >
-                <Text className={`text-center font-semibold ${scanFrequency === 'monthly' ? 'text-white' : 'text-gray-700'}`}>
+                <Text className={`text-center font-semibold text-sm ${scanFrequency === 'monthly' ? 'text-white' : 'text-gray-600'}`}>
                   Monthly
                 </Text>
               </TouchableOpacity>
@@ -492,10 +539,13 @@ export default function Settings({ navigation }: SettingsProps) {
         )}
 
         {/* Scan only when charging */}
-        <View className="p-4 flex-row justify-between items-center">
+        <View className="p-5 flex-row justify-between items-center">
           <View className="flex-1 pr-4">
-            <Text className="text-gray-800 font-semibold mb-1">Scan Only When Charging</Text>
-            <Text className="text-sm text-gray-500">
+            <View className="flex-row items-center mb-1">
+              <Ionicons name="battery-charging" size={20} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Scan Only When Charging</Text>
+            </View>
+            <Text className="text-sm text-gray-500 ml-7">
               Preserve battery by scanning only when plugged in
             </Text>
           </View>
@@ -505,26 +555,36 @@ export default function Settings({ navigation }: SettingsProps) {
               setScanOnCharging(value);
               await savePreference('scan_only_when_charging', value ? 1 : 0);
             }}
+            trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
+            thumbColor={scanOnCharging ? '#ffffff' : '#f3f4f6'}
           />
         </View>
       </View>
 
       {/* Duplicate Detection */}
-      <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
-        <View className="p-4 border-b border-gray-200">
-          <Text className="font-bold text-lg text-gray-800">Duplicate Detection</Text>
+      <View className="bg-white mt-6 mx-4 rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <View className="p-5 border-b border-gray-100 bg-green-50">
+          <View className="flex-row items-center">
+            <View className="bg-green-100 p-2.5 rounded-xl mr-3">
+              <MaterialCommunityIcons name="image-multiple" size={24} color="#16a34a" />
+            </View>
+            <Text className="font-bold text-xl text-gray-800">Duplicate Detection</Text>
+          </View>
         </View>
 
         {/* Similarity Threshold */}
-        <View className="p-4 border-b border-gray-200">
-          <Text className="text-gray-800 font-semibold mb-2">
-            Similarity Threshold: {similarityThreshold}%
-          </Text>
-          <Text className="text-sm text-gray-500 mb-3">
+        <View className="p-5 border-b border-gray-100">
+          <View className="flex-row items-center mb-2">
+            <MaterialCommunityIcons name="tune-variant" size={20} color="#6b7280" />
+            <Text className="text-gray-800 font-semibold text-base ml-2">
+              Similarity Threshold: {similarityThreshold}%
+            </Text>
+          </View>
+          <Text className="text-sm text-gray-500 mb-4 ml-7">
             Lower values detect more potential duplicates but may include false positives
           </Text>
           {/* Simplified threshold selector */}
-          <View className="flex-row space-x-2">
+          <View className="flex-row gap-2">
             {[70, 80, 85, 90, 95].map((value) => (
               <TouchableOpacity
                 key={value}
@@ -532,9 +592,9 @@ export default function Settings({ navigation }: SettingsProps) {
                   setSimilarityThreshold(value);
                   await savePreference('similarity_threshold', value);
                 }}
-                className={`flex-1 py-2 rounded-lg ${similarityThreshold === value ? 'bg-blue-600' : 'bg-gray-200'}`}
+                className={`flex-1 py-3 rounded-xl ${similarityThreshold === value ? 'bg-green-600 shadow-md' : 'bg-gray-100 border border-gray-200'}`}
               >
-                <Text className={`text-center text-sm ${similarityThreshold === value ? 'text-white font-bold' : 'text-gray-700'}`}>
+                <Text className={`text-center text-sm ${similarityThreshold === value ? 'text-white font-bold' : 'text-gray-600'}`}>
                   {value}%
                 </Text>
               </TouchableOpacity>
@@ -543,10 +603,13 @@ export default function Settings({ navigation }: SettingsProps) {
         </View>
 
         {/* Include Screenshots */}
-        <View className="p-4 border-b border-gray-200 flex-row justify-between items-center">
+        <View className="p-5 border-b border-gray-100 flex-row justify-between items-center">
           <View className="flex-1 pr-4">
-            <Text className="text-gray-800 font-semibold mb-1">Include Screenshots</Text>
-            <Text className="text-sm text-gray-500">
+            <View className="flex-row items-center mb-1">
+              <MaterialIcons name="screenshot" size={20} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Include Screenshots</Text>
+            </View>
+            <Text className="text-sm text-gray-500 ml-7">
               Detect duplicate screenshots
             </Text>
           </View>
@@ -556,14 +619,19 @@ export default function Settings({ navigation }: SettingsProps) {
               setIncludeScreenshots(value);
               await savePreference('include_screenshots_in_scan', value ? 1 : 0);
             }}
+            trackColor={{ false: '#d1d5db', true: '#16a34a' }}
+            thumbColor={includeScreenshots ? '#ffffff' : '#f3f4f6'}
           />
         </View>
 
         {/* Include Burst Photos */}
-        <View className="p-4 flex-row justify-between items-center">
+        <View className="p-5 flex-row justify-between items-center">
           <View className="flex-1 pr-4">
-            <Text className="text-gray-800 font-semibold mb-1">Include Burst Photos</Text>
-            <Text className="text-sm text-gray-500">
+            <View className="flex-row items-center mb-1">
+              <MaterialCommunityIcons name="camera-burst" size={20} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Include Burst Photos</Text>
+            </View>
+            <Text className="text-sm text-gray-500 ml-7">
               Group burst photos taken within 2 seconds
             </Text>
           </View>
@@ -573,26 +641,36 @@ export default function Settings({ navigation }: SettingsProps) {
               setIncludeBurstPhotos(value);
               await savePreference('include_burst_photos_in_scan', value ? 1 : 0);
             }}
+            trackColor={{ false: '#d1d5db', true: '#16a34a' }}
+            thumbColor={includeBurstPhotos ? '#ffffff' : '#f3f4f6'}
           />
         </View>
       </View>
 
       {/* Cloud Sync */}
-      <View className="bg-white mt-4 mx-4 rounded-xl shadow-sm overflow-hidden">
-        <View className="p-4 border-b border-gray-200">
-          <Text className="font-bold text-lg text-gray-800">Cloud Sync</Text>
+      <View className="bg-white mt-6 mx-4 rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <View className="p-5 border-b border-gray-100 bg-cyan-50">
+          <View className="flex-row items-center">
+            <View className="bg-cyan-100 p-2.5 rounded-xl mr-3">
+              <Ionicons name="cloud-upload-outline" size={24} color="#0891b2" />
+            </View>
+            <Text className="font-bold text-xl text-gray-800">Cloud Sync</Text>
+          </View>
         </View>
 
         {/* Enable Cloud Sync */}
-        <View className="p-4 border-b border-gray-200 flex-row justify-between items-center">
+        <View className="p-5 border-b border-gray-100 flex-row justify-between items-center">
           <View className="flex-1 pr-4">
-            <Text className="text-gray-800 font-semibold mb-1">Enable Cloud Sync</Text>
-            <Text className="text-sm text-gray-500">
+            <View className="flex-row items-center mb-1">
+              <Ionicons name="sync-outline" size={20} color="#6b7280" />
+              <Text className="text-gray-800 font-semibold text-base ml-2">Enable Cloud Sync</Text>
+            </View>
+            <Text className="text-sm text-gray-500 ml-7">
               Sync preferences and duplicate decisions (not photos)
             </Text>
             {tier === 'free' && (
-              <View className="bg-blue-100 px-2 py-1 rounded mt-1 self-start">
-                <Text className="text-blue-700 text-xs font-bold">PRO ONLY</Text>
+              <View className="bg-cyan-100 px-3 py-1.5 rounded-full mt-2 self-start border border-cyan-200">
+                <Text className="text-cyan-700 text-xs font-bold">PRO ONLY</Text>
               </View>
             )}
           </View>
@@ -600,30 +678,52 @@ export default function Settings({ navigation }: SettingsProps) {
             value={cloudSyncEnabled}
             onValueChange={handleCloudSyncToggle}
             disabled={tier === 'free'}
+            trackColor={{ false: '#d1d5db', true: '#0891b2' }}
+            thumbColor={cloudSyncEnabled ? '#ffffff' : '#f3f4f6'}
           />
         </View>
 
         {/* Last Sync */}
         {cloudSyncEnabled && (
-          <View className="p-4 border-b border-gray-200">
+          <View className="p-5 border-b border-gray-100">
             <View className="flex-row justify-between items-center">
-              <Text className="text-gray-700">Last Sync</Text>
-              <Text className="text-gray-500">{lastSync}</Text>
+              <View className="flex-row items-center">
+                <MaterialIcons name="access-time" size={18} color="#6b7280" />
+                <Text className="text-gray-700 font-medium ml-2">Last Sync</Text>
+              </View>
+              <Text className="text-gray-500 font-medium">{lastSync}</Text>
             </View>
           </View>
         )}
 
         {/* Sync Now Button */}
         {cloudSyncEnabled && (
-          <View className="p-4">
+          <View className="p-5">
             <TouchableOpacity
-              className="bg-blue-600 py-3 rounded-lg"
+              className="bg-cyan-600 py-4 rounded-xl shadow-md"
+              style={{
+                shadowColor: '#0891b2',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}
               onPress={handleSyncNow}
               disabled={isSyncing}
             >
-              <Text className="text-white text-center font-semibold">
-                {isSyncing ? 'Syncing...' : 'Sync Now'}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                {isSyncing ? (
+                  <>
+                    <MaterialCommunityIcons name="loading" size={20} color="white" />
+                    <Text className="text-white text-center font-semibold text-base ml-2">Syncing...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload" size={20} color="white" />
+                    <Text className="text-white text-center font-semibold text-base ml-2">Sync Now</Text>
+                  </>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -682,28 +782,50 @@ export default function Settings({ navigation }: SettingsProps) {
       </View> */}
 
       {/* About */}
-      <View className="bg-white mt-4 mx-4 mb-8 rounded-xl shadow-sm overflow-hidden">
-        <View className="p-4 border-b border-gray-200">
-          <Text className="font-bold text-lg text-gray-800">About</Text>
+      <View className="bg-white mt-6 mx-4 mb-8 rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <View className="p-5 border-b border-gray-100 bg-gray-50">
+          <View className="flex-row items-center">
+            <View className="bg-gray-200 p-2.5 rounded-xl mr-3">
+              <Ionicons name="information-circle-outline" size={24} color="#4b5563" />
+            </View>
+            <Text className="font-bold text-xl text-gray-800">About</Text>
+          </View>
         </View>
 
-        <View className="p-4 border-b border-gray-200 flex-row justify-between items-center">
-          <Text className="text-gray-700">App Version</Text>
-          <Text className="text-gray-500">1.0.0</Text>
+        <View className="p-5 border-b border-gray-100 flex-row justify-between items-center">
+          <View className="flex-row items-center">
+            <MaterialCommunityIcons name="cellphone" size={18} color="#6b7280" />
+            <Text className="text-gray-700 font-medium ml-2">App Version</Text>
+          </View>
+          <View className="bg-gray-100 px-3 py-1.5 rounded-full">
+            <Text className="text-gray-600 font-semibold text-sm">1.0.0</Text>
+          </View>
         </View>
 
         <TouchableOpacity
-          className="p-4 border-b border-gray-200"
+          className="p-5 border-b border-gray-100 active:bg-gray-50"
           onPress={() => Linking.openURL('https://verdant-nougat-01b352.netlify.app/privacy')}
         >
-          <Text className="text-blue-600">Privacy Policy</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <MaterialIcons name="privacy-tip" size={20} color="#3b82f6" />
+              <Text className="text-blue-600 font-semibold text-base ml-2">Privacy Policy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="p-4 border-b border-gray-200"
+          className="p-5 active:bg-gray-50"
           onPress={() => Linking.openURL('https://verdant-nougat-01b352.netlify.app/terms')}
         >
-          <Text className="text-blue-600">Terms of Service</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="file-document-outline" size={20} color="#3b82f6" />
+              <Text className="text-blue-600 font-semibold text-base ml-2">Terms of Service</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+          </View>
         </TouchableOpacity>
       </View>
     </ScrollView>

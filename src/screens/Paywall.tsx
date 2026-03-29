@@ -67,7 +67,8 @@ export default function Paywall({ navigation }: PaywallProps) {
           period: pkg.packageType || 'one-time',
           popular: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual'),
           savings: pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier.toLowerCase().includes('annual') ? 'Save 50%' :
-                   pkg.identifier.toLowerCase().includes('lifetime') ? 'Best Value' : undefined,
+                   //pkg.identifier.toLowerCase().includes('lifetime') ? 'Best Value' : undefined,
+                   undefined
         };
       }) || [];
 
@@ -87,13 +88,17 @@ export default function Paywall({ navigation }: PaywallProps) {
       console.error('Error loading pricing plans:', err);
       setError(err instanceof Error ? err.message : 'Failed to load pricing plans');
 
-      // Fallback to mock data for development/testing
+      // COMMENTED OUT: Fallback to mock data for development/testing
+      // Uncomment the lines below if you need to test with mock data
       const mockPlans: PricingPlan[] = [
         { id: 'monthly', name: 'Monthly', price: '$4.99', period: '/month' },
         { id: 'yearly', name: 'Yearly', price: '$29.99', period: '/year', savings: 'Save 50%', popular: true },
-        { id: 'lifetime', name: 'Lifetime', price: '$79.99', period: 'one-time', savings: 'Best Value' },
+        //{ id: 'lifetime', name: 'Lifetime', price: '$79.99', period: 'one-time', savings: 'Best Value' },
       ];
       setPricingPlans(mockPlans);
+
+      // Only show actual RevenueCat offerings
+      //setPricingPlans([]);
     } finally {
       setIsLoading(false);
     }
@@ -425,10 +430,9 @@ export default function Paywall({ navigation }: PaywallProps) {
           ) : (
             <>
               <Text className="text-white text-center font-bold text-lg">
-                Start Pro Trial
+                Subscribe to Pro
               </Text>
               <Text className="text-blue-100 text-center text-sm">
-                7 days free, then{' '}
                 {pricingPlans.find(p => p.id === selectedPlan)?.price}{' '}
                 {pricingPlans.find(p => p.id === selectedPlan)?.period}
               </Text>
@@ -436,20 +440,33 @@ export default function Paywall({ navigation }: PaywallProps) {
           )}
         </TouchableOpacity>
 
-        <View className="flex-row justify-center space-x-4">
+        <View className="flex-row justify-between items-center space-x-3">
           <TouchableOpacity
             onPress={handleRestorePurchases}
             disabled={isRestoring || isPurchasing}
+            className={`flex-1 py-3 px-4 rounded-lg border ${
+              isRestoring || isPurchasing ? 'border-gray-200 bg-gray-50' : 'border-blue-600 bg-blue-50'
+            }`}
           >
-            <Text className={`text-sm ${isRestoring ? 'text-gray-300' : 'text-gray-500'}`}>
+            <Text className={`text-center text-sm font-semibold ${
+              isRestoring || isPurchasing ? 'text-gray-300' : 'text-blue-600'
+            }`}>
               {isRestoring ? 'Restoring...' : 'Restore Purchases'}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             disabled={isPurchasing || isRestoring}
+            className={`flex-1 py-3 px-4 rounded-lg border ${
+              isPurchasing || isRestoring ? 'border-gray-200 bg-gray-50' : 'border-gray-300 bg-white'
+            }`}
           >
-            <Text className="text-gray-500 text-sm">Maybe Later</Text>
+            <Text className={`text-center text-sm font-semibold ${
+              isPurchasing || isRestoring ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              Maybe Later
+            </Text>
           </TouchableOpacity>
         </View>
 

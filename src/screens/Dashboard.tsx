@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Pressable, Alert } from 'reac
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Button, Badge, SavingsBadge, LoadingSpinner, ErrorState } from '../components';
 import { colors, spacing, typography, layout } from '../theme';
@@ -211,8 +212,10 @@ export default function Dashboard({ navigation }: DashboardProps) {
   // Show loading state
   if (isLoading) {
     return (
-      <View className="flex-1 bg-gray-50 justify-center items-center">
-        <LoadingSpinner size="large" label="Loading your dashboard..." />
+      <View className="flex-1 bg-gray-50 justify-center items-center p-6">
+        <View className="bg-white p-8 rounded-2xl shadow-lg">
+          <LoadingSpinner size="large" label="Loading your dashboard..." />
+        </View>
       </View>
     );
   }
@@ -220,12 +223,14 @@ export default function Dashboard({ navigation }: DashboardProps) {
   // Show error state
   if (error) {
     return (
-      <View className="flex-1 bg-gray-50">
-        <ErrorState
-          title="Failed to Load Dashboard"
-          message={error}
-          onRetry={loadDashboardData}
-        />
+      <View className="flex-1 bg-gray-50 p-6">
+        <View className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <ErrorState
+            title="Failed to Load Dashboard"
+            message={error}
+            onRetry={loadDashboardData}
+          />
+        </View>
       </View>
     );
   }
@@ -234,10 +239,15 @@ export default function Dashboard({ navigation }: DashboardProps) {
     <ScrollView className="flex-1 bg-gray-50">
       {/* DEV ONLY: Development Controls */}
       {__DEV__ && (
-        <View className="bg-yellow-500 m-4 p-4 rounded-xl" style={layout.shadow.default}>
-          <Text style={[typography.label.large, { color: colors.text.primary, marginBottom: spacing[3], textAlign: 'center' }]}>
-            🛠️ DEVELOPER CONTROLS
-          </Text>
+        <View className="bg-yellow-400 m-4 p-5 rounded-2xl border-2 border-yellow-500 shadow-lg">
+          <View className="flex-row items-center justify-center mb-4">
+            <View className="bg-yellow-500 p-2 rounded-lg mr-2">
+              <MaterialCommunityIcons name="hammer-wrench" size={20} color="white" />
+            </View>
+            <Text style={[typography.label.large, { color: '#78350f', fontWeight: 'bold', fontSize: 16 }]}>
+              DEVELOPER CONTROLS
+            </Text>
+          </View>
           <View className="flex-row justify-between gap-2">
             <TouchableOpacity
               onPress={async () => {
@@ -247,12 +257,15 @@ export default function Dashboard({ navigation }: DashboardProps) {
                 await loadDashboardData();
                 Alert.alert('✅ Dev Reset', 'Usage counters have been reset!');
               }}
-              className="flex-1 bg-red-600 p-3 rounded-lg"
+              className="flex-1 bg-red-600 p-3 rounded-xl shadow-md"
               activeOpacity={0.8}
             >
-              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
-                Reset Usage
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <MaterialIcons name="refresh" size={14} color="white" />
+                <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }]}>
+                  Reset
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -263,12 +276,15 @@ export default function Dashboard({ navigation }: DashboardProps) {
                 await loadDashboardData();
                 Alert.alert('✅ Dev Pro', 'Set to PRO tier (unlimited scans)');
               }}
-              className="flex-1 bg-purple-600 p-3 rounded-lg"
+              className="flex-1 bg-purple-600 p-3 rounded-xl shadow-md"
               activeOpacity={0.8}
             >
-              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
-                Set PRO
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="star" size={14} color="white" />
+                <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }]}>
+                  PRO
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -279,12 +295,15 @@ export default function Dashboard({ navigation }: DashboardProps) {
                 await loadDashboardData();
                 Alert.alert('✅ Dev Free', 'Set to FREE tier with reset counters');
               }}
-              className="flex-1 bg-gray-600 p-3 rounded-lg"
+              className="flex-1 bg-gray-600 p-3 rounded-xl shadow-md"
               activeOpacity={0.8}
             >
-              <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 12 }]}>
-                Set FREE
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <MaterialCommunityIcons name="account" size={14} color="white" />
+                <Text style={[typography.button.default, { color: 'white', textAlign: 'center', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }]}>
+                  FREE
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -294,78 +313,156 @@ export default function Dashboard({ navigation }: DashboardProps) {
       {dashboardData.tier === 'free' && (
         <TouchableOpacity
           onPress={() => handleQuickAction('Paywall')}
-          className="bg-blue-600 p-4 m-4 rounded-xl"
+          className="bg-blue-600 p-5 m-4 rounded-2xl shadow-lg border border-blue-500"
+          style={{
+            shadowColor: '#2563eb',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
           activeOpacity={0.8}
         >
-          <Text className="text-white font-bold text-center mb-1">
-            Free Plan: {dashboardData.scansRemaining} scans remaining this month
-          </Text>
-          <Text className="text-blue-100 text-center text-sm">
-            Tap to upgrade to Pro for unlimited scans
-          </Text>
+          <View className="flex-row items-center justify-center mb-2">
+            <Ionicons name="information-circle" size={24} color="white" />
+            <Text className="text-white font-bold text-center text-lg ml-2">
+              Free Plan
+            </Text>
+          </View>
+          <View className="bg-blue-500 p-3 rounded-xl mb-3" style={{ opacity: 0.6 }}>
+            <View className="flex-row items-center justify-center">
+              <MaterialIcons name="analytics" size={18} color="white" />
+              <Text className="text-white font-semibold text-center ml-2">
+                {dashboardData.scansRemaining} scans remaining this month
+              </Text>
+            </View>
+          </View>
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="rocket" size={18} color="#dbeafe" />
+            <Text className="text-blue-100 text-center text-sm ml-2">
+              Tap to upgrade to Pro for unlimited scans
+            </Text>
+          </View>
         </TouchableOpacity>
       )}
 
-      {/* Storage Overview Card - Using new Card component style */}
-      <View className="bg-white m-4 p-6 rounded-xl" style={layout.shadow.default}>
-        <Text style={[typography.heading.h4, { color: colors.text.primary, marginBottom: spacing[4] }]}>
-          Storage Overview
-        </Text>
-        <View className="flex-row justify-between mb-3">
-          <Text style={[typography.body.default, { color: colors.text.secondary }]}>Total Media</Text>
-          <Text style={[typography.label.large, { color: colors.text.primary }]}>
-            {dashboardData.totalMedia.toLocaleString()}
-          </Text>
+      {/* Storage Overview Card - Modern design with gradient header */}
+      <View className="bg-white m-4 rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <View className="p-5 border-b border-gray-100 bg-purple-50">
+          <View className="flex-row items-center">
+            <View className="bg-purple-100 p-2.5 rounded-xl mr-3">
+              <MaterialCommunityIcons name="database" size={24} color="#9333ea" />
+            </View>
+            <Text style={[typography.heading.h4, { color: colors.text.primary }]}>
+              Storage Overview
+            </Text>
+          </View>
         </View>
-        <View className="flex-row justify-between mb-3 ml-4">
-          <Text style={[typography.body.small, { color: colors.text.tertiary }]}>Photos</Text>
-          <Text style={[typography.body.small, { color: colors.text.secondary }]}>
-            {dashboardData.totalPhotos.toLocaleString()}
-          </Text>
-        </View>
-        <View className="flex-row justify-between mb-3 ml-4">
-          <Text style={[typography.body.small, { color: colors.text.tertiary }]}>Videos</Text>
-          <Text style={[typography.body.small, { color: colors.text.secondary }]}>
-            {dashboardData.totalVideos.toLocaleString()}
-          </Text>
-        </View>
-        <View className="flex-row justify-between mb-3">
-          <Text style={[typography.body.default, { color: colors.text.secondary }]}>Total Size</Text>
-          <Text style={[typography.label.large, { color: colors.text.primary }]}>{dashboardData.totalSize}</Text>
-        </View>
-        <View className="flex-row justify-between">
-          <Text style={[typography.body.default, { color: colors.text.secondary }]}>Free Space</Text>
-          <Text style={[typography.label.large, { color: colors.success.default }]}>{dashboardData.freeSpace}</Text>
+
+        <View className="p-5">
+          <View className="flex-row justify-between items-center mb-4 pb-4 border-b border-gray-100">
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="image-multiple" size={20} color="#6b7280" />
+              <Text style={[typography.body.default, { color: colors.text.secondary, marginLeft: 8 }]}>Total Media</Text>
+            </View>
+            <View className="bg-purple-100 px-3 py-1.5 rounded-full">
+              <Text style={[typography.label.large, { color: '#9333ea', fontWeight: 'bold' }]}>
+                {dashboardData.totalMedia.toLocaleString()}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row justify-between items-center mb-3 ml-7">
+            <View className="flex-row items-center">
+              <Ionicons name="image" size={16} color="#9ca3af" />
+              <Text style={[typography.body.small, { color: colors.text.tertiary, marginLeft: 8 }]}>Photos</Text>
+            </View>
+            <Text style={[typography.body.small, { color: colors.text.secondary, fontWeight: '600' }]}>
+              {dashboardData.totalPhotos.toLocaleString()}
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between items-center mb-4 ml-7">
+            <View className="flex-row items-center">
+              <Ionicons name="videocam" size={16} color="#9ca3af" />
+              <Text style={[typography.body.small, { color: colors.text.tertiary, marginLeft: 8 }]}>Videos</Text>
+            </View>
+            <Text style={[typography.body.small, { color: colors.text.secondary, fontWeight: '600' }]}>
+              {dashboardData.totalVideos.toLocaleString()}
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-gray-100">
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="harddisk" size={20} color="#6b7280" />
+              <Text style={[typography.body.default, { color: colors.text.secondary, marginLeft: 8 }]}>Total Size</Text>
+            </View>
+            <Text style={[typography.label.large, { color: colors.text.primary, fontWeight: 'bold' }]}>{dashboardData.totalSize}</Text>
+          </View>
+
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Ionicons name="cloud-outline" size={20} color="#16a34a" />
+              <Text style={[typography.body.default, { color: colors.text.secondary, marginLeft: 8 }]}>Free Space</Text>
+            </View>
+            <Text style={[typography.label.large, { color: colors.success.default, fontWeight: 'bold' }]}>{dashboardData.freeSpace}</Text>
+          </View>
         </View>
       </View>
 
       {/* Potential Savings Card */}
       <View
-        className="m-4 p-6 rounded-xl"
-        style={{ backgroundColor: colors.success.default }}
+        className="m-4 p-6 rounded-2xl shadow-lg border border-green-400"
+        style={{
+          backgroundColor: colors.success.default,
+          shadowColor: '#16a34a',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
       >
-        <Text style={[typography.heading.h4, { color: colors.text.inverse, marginBottom: spacing[2] }]}>
-          Potential Savings
-        </Text>
-        <Text style={[typography.special.displayNumber, { color: colors.text.inverse, marginBottom: spacing[1] }]}>
-          {dashboardData.potentialSavings}
-        </Text>
-        <Text style={[typography.body.small, { color: colors.success.light }]}>
-          Based on {dashboardData.duplicateGroups} duplicate groups found
-        </Text>
+        <View className="flex-row items-center mb-3">
+          <View className="bg-white p-2.5 rounded-xl mr-3" style={{ opacity: 0.3 }}>
+            <MaterialCommunityIcons name="chart-line" size={24} color="white" />
+          </View>
+          <Text style={[typography.heading.h4, { color: colors.text.inverse }]}>
+            Potential Savings
+          </Text>
+        </View>
+
+        <View className="bg-white p-4 rounded-xl mb-3" style={{ opacity: 0.3 }}>
+          <Text style={[typography.special.displayNumber, { color: colors.text.inverse, textAlign: 'center' }]}>
+            {dashboardData.potentialSavings}
+          </Text>
+        </View>
+
+        <View className="flex-row items-center justify-center">
+          <MaterialCommunityIcons name="image-multiple" size={16} color="white" />
+          <Text style={[typography.body.small, { color: 'rgba(255,255,255,0.9)', marginLeft: 6 }]}>
+            Based on {dashboardData.duplicateGroups} duplicate group{dashboardData.duplicateGroups !== 1 ? 's' : ''} found
+          </Text>
+        </View>
       </View>
 
       {/* Quick Action Cards */}
       <View className="mx-4 mb-4">
-        <Text style={[typography.heading.h4, { color: colors.text.primary, marginBottom: spacing[3] }]}>
-          Quick Actions
-        </Text>
+        <View className="flex-row items-center mb-4">
+          <View className="bg-blue-100 p-2 rounded-xl mr-3">
+            <Ionicons name="flash" size={20} color="#2563eb" />
+          </View>
+          <Text style={[typography.heading.h4, { color: colors.text.primary }]}>
+            Quick Actions
+          </Text>
+        </View>
 
         {/* Duplicates Card - Using themed styles */}
         <QuickActionCard
           title="Duplicate Photos"
           subtitle={`${dashboardData.duplicateGroups} groups found`}
           badge={<SavingsBadge amount={dashboardData.potentialSavings} />}
+          icon={<MaterialCommunityIcons name="image-multiple" size={24} color="#ef4444" />}
+          iconBg="bg-red-100"
           onPress={() => handleQuickAction('Duplicates')}
         />
 
@@ -374,6 +471,8 @@ export default function Dashboard({ navigation }: DashboardProps) {
           title="Large Files"
           subtitle={`${dashboardData.largeFilesCount} files over 5MB`}
           badge={<Badge label="Review" variant="largeFiles" />}
+          icon={<MaterialCommunityIcons name="file-chart" size={24} color="#f59e0b" />}
+          iconBg="bg-amber-100"
           onPress={() => handleQuickAction('LargeFiles')}
         />
 
@@ -382,6 +481,8 @@ export default function Dashboard({ navigation }: DashboardProps) {
           title="Screenshots"
           subtitle={`${dashboardData.screenshotsCount} screenshots found`}
           badge={<Badge label="Clean" variant="screenshots" />}
+          icon={<MaterialIcons name="screenshot" size={24} color="#8b5cf6" />}
+          iconBg="bg-purple-100"
           onPress={() => handleQuickAction('Screenshots')}
         />
 
@@ -390,6 +491,8 @@ export default function Dashboard({ navigation }: DashboardProps) {
           title="Videos"
           subtitle={`${dashboardData.totalVideos.toLocaleString()} videos found`}
           badge={<Badge label="Browse" variant="primary" />}
+          icon={<Ionicons name="videocam" size={24} color="#06b6d4" />}
+          iconBg="bg-cyan-100"
           onPress={() => handleQuickAction('VideoLibrary')}
         />
 
@@ -398,43 +501,82 @@ export default function Dashboard({ navigation }: DashboardProps) {
           title="All Media"
           subtitle={`Browse all ${dashboardData.totalMedia.toLocaleString()} items`}
           badge={<Badge label="View" variant="primary" />}
+          icon={<Ionicons name="images" size={24} color="#2563eb" />}
+          iconBg="bg-blue-100"
           onPress={() => handleQuickAction('PhotoLibrary')}
         />
       </View>
 
-      {/* Start Scan Button - Using new Button component */}
+      {/* Start Scan Button - Modern design */}
       <View className="m-4">
         {isScanning ? (
           <View
-            className="rounded-xl p-4"
-            style={{ backgroundColor: colors.primary.default }}
+            className="rounded-2xl p-6 border border-blue-400"
+            style={{
+              backgroundColor: colors.primary.default,
+              shadowColor: '#2563eb',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
           >
             <LoadingSpinner color={colors.text.inverse} label="Scanning your library..." />
           </View>
         ) : (
           <TouchableOpacity
             onPress={handleStartScan}
-            className="rounded-xl p-4"
-            style={[{ backgroundColor: colors.primary.default }, layout.shadow.md]}
+            className="rounded-2xl p-6 bg-blue-600 border border-blue-500"
+            style={{
+              backgroundColor: colors.primary.default,
+              shadowColor: '#2563eb',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.4,
+              shadowRadius: 12,
+              elevation: 10,
+            }}
             activeOpacity={0.8}
           >
-            <Text style={[typography.button.large, { color: colors.text.inverse, textAlign: 'center' }]}>
-              Start New Scan
-            </Text>
-            <Text style={[typography.body.small, { color: colors.primary.lighter, textAlign: 'center', marginTop: spacing[1] }]}>
-              Last scan: {dashboardData.lastScan}
-            </Text>
+            <View className="flex-row items-center justify-center mb-2">
+              <View className="bg-white p-2 rounded-lg mr-3" style={{ opacity: 0.3 }}>
+                <MaterialCommunityIcons name="radar" size={24} color="white" />
+              </View>
+              <Text style={[typography.button.large, { color: colors.text.inverse, fontSize: 18, fontWeight: 'bold' }]}>
+                Start New Scan
+              </Text>
+            </View>
+            <View className="flex-row items-center justify-center">
+              <MaterialIcons name="access-time" size={14} color="rgba(255,255,255,0.7)" />
+              <Text style={[typography.body.small, { color: 'rgba(255,255,255,0.8)', marginLeft: 6 }]}>
+                Last scan: {dashboardData.lastScan}
+              </Text>
+            </View>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Settings Link */}
       <View className="m-4 mb-8">
-        <Button
-          label="Settings & Preferences"
-          variant="link"
+        <TouchableOpacity
           onPress={() => handleQuickAction('Settings')}
-        />
+          className="bg-white p-4 rounded-2xl border border-gray-200"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+          activeOpacity={0.7}
+        >
+          <View className="flex-row items-center justify-center">
+            <MaterialIcons name="settings" size={20} color="#6b7280" />
+            <Text style={[typography.button.default, { color: colors.text.secondary, marginLeft: 8, fontWeight: '600' }]}>
+              Settings & Preferences
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" style={{ marginLeft: 4 }} />
+          </View>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -483,29 +625,43 @@ interface QuickActionCardProps {
   title: string;
   subtitle: string;
   badge: React.ReactNode;
+  icon: React.ReactNode;
+  iconBg: string;
   onPress: () => void;
 }
 
-function QuickActionCard({ title, subtitle, badge, onPress }: QuickActionCardProps) {
+function QuickActionCard({ title, subtitle, badge, icon, iconBg, onPress }: QuickActionCardProps) {
   return (
     <Pressable
       onPress={onPress}
-      className="bg-white p-4 rounded-xl mb-3"
+      className="bg-white p-5 rounded-2xl mb-3 border border-gray-100"
       style={({ pressed }) => [
-        layout.shadow.default,
-        pressed && { opacity: 0.7 },
+        {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 3,
+        },
+        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
       ]}
     >
-      <View className="flex-row justify-between items-center">
+      <View className="flex-row items-center">
+        <View className={`p-3 rounded-xl mr-4 ${iconBg}`}>
+          {icon}
+        </View>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.label.large, { color: colors.text.primary }]}>
+          <Text style={[typography.label.large, { color: colors.text.primary, fontSize: 16, fontWeight: '600' }]}>
             {title}
           </Text>
           <Text style={[typography.body.small, { color: colors.text.tertiary, marginTop: spacing[1] }]}>
             {subtitle}
           </Text>
         </View>
-        {badge}
+        <View className="ml-2">
+          {badge}
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={{ marginLeft: 8 }} />
       </View>
     </Pressable>
   );
